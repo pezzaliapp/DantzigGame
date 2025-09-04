@@ -411,6 +411,8 @@
   newBtn.addEventListener('click', genProblem);
   levelSel.addEventListener('change', genProblem);
   hintBtn.addEventListener('click', ()=>{ hint = !hint; hintBtn.classList.toggle('primary', hint); status.textContent = hint ? 'Hint attivo' : 'Hint disattivato'; draw(); });
+  /* HEADER SIMPLEX LISTENER */
+  simplexBtn.addEventListener('click', ()=>{ buildSimplexPath(); simplexIndex=0; updateSimplexLabel(); draw(); });
   centerBtn.addEventListener('click', ()=>{ xVal.value = player.x.toFixed(2); yVal.value = player.y.toFixed(2); draw(); });
   [snapInt, boolMode].forEach(el=> el.addEventListener('change', ()=>{ draw(); loadBest(); }));
 
@@ -436,7 +438,7 @@
     if(gameMode==='time') stopTimer();
   });
 
-  simplexBtn.addEventListener('click', ()=>{ buildSimplexPath(); simplexIndex=0; updateSimplexLabel(); draw(); });
+  
   sxPrev?.addEventListener('click', ()=>{ if(simplexPath.length){ simplexIndex = Math.max(0, simplexIndex-1); updateSimplexLabel(); draw(); } });
   sxNext?.addEventListener('click', ()=>{ if(simplexPath.length){ simplexIndex = Math.min(simplexPath.length-1, simplexIndex+1); updateSimplexLabel(); draw(); } });
 
@@ -499,3 +501,11 @@
   // init
   gameMode = modeSel.value;
   applyModeUI();
+
+// Re-bind simplexBtn (header) to trigger simplex path
+simplexBtn.addEventListener('click', ()=>{
+  buildSimplexPath();
+  simplexIndex = 0;
+  updateSimplexLabel();
+  draw();
+});
