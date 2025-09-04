@@ -80,6 +80,8 @@
       slants.push({a,b,d});
     }
     world = { Xmax, Ymax, c:[c1,c2], slants, level };
+    console.log('NUOVO PROBLEMA', world);
+    slants.forEach((s,i)=>console.log(`vincolo ${i+1}: ${s.a}x + ${s.b}y ≤ ${s.d}`));
     player.x = Math.min(2, Xmax/2);
     player.y = Math.min(2, Ymax/2);
     hint = false;
@@ -92,11 +94,10 @@
     loadBest();
   }
 
-  function feasible(p){
+  function feasible(p, quantize=false){
     const {Xmax,Ymax,slants} = world;
     let [x,y]=p;
-    // boolean mode forces 0/1
-    if(boolMode.checked){ x = Math.round(x); y = Math.round(y); x = x<0?0:x>1?1:x; y = y<0?0:y>1?1:y; }
+    if(quantize && boolMode.checked){ x = Math.round(x); y = Math.round(y); x = x<0?0:x>1?1:x; y = y<0?0:y>1?1:y; }
     if(x<0 || y<0 || x> Xmax || y> Ymax) return false;
     for(const s of slants){ if(s.a*x + s.b*y - s.d > 1e-9) return false; }
     return true;
@@ -127,7 +128,7 @@
     for(const s of slants){ lines.push({A:s.a, B:s.b, C:s.d}); }
     const cand = lineIntersections(lines);
     cand.push([0,0],[Xmax,0],[0,Ymax],[Xmax,Ymax]);
-    const verts = cand.filter(feasible);
+    const verts = cand.filter(p=>feasible(p, false));
     // dedup
     const uniq = [];
     for(const p of verts){
@@ -228,7 +229,7 @@
     for(let sx=PAD; sx<=W-PAD; sx+=step){
       for(let sy=PAD; sy<=H-PAD; sy+=step){
         const [x,y]=toWorld(sx,sy);
-        if(feasible([x,y])) ctx.fillRect(sx,sy,step,step);
+        if(feasible([x,y], false)) ctx.fillRect(sx,sy,step,step);
       }
     }
   }
@@ -337,7 +338,7 @@
   checkBtn.addEventListener('click', ()=>{
     const opt = computeOptimum();
     if(!opt.ok){ status.textContent = 'Nessuna soluzione ammissibile.'; return; }
-    const within = feasible([player.x, player.y]);
+    const within = feasible([player.x, player.y], true);
     const myVal = objectiveValue(player.x, player.y);
     const bestVal = opt.value;
     const ratio = Math.max(0, Math.min(1, myVal / (bestVal || 1)));
