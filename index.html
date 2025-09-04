@@ -26,6 +26,7 @@
         <option value="hard">Difficile</option>
       </select>
     </label>
+    <label class="toggle">Adatta in altezza <input type="checkbox" id="fitHeight"></label>
     <button id="simplexBtn">Simplex step</button>
     <button id="helpBtn" aria-label="Aiuto">?</button>
     <span class="spacer"></span>
@@ -92,14 +93,13 @@
     <small>© 2025 PezzaliAPP — Dantzig Game (MIT). PWA offline. <a href="#" id="installLink">Installa</a></small>
   </footer>
 
-  <!-- Tutorial Modal -->
   <dialog id="tutorial">
     <h2>Come si gioca</h2>
     <ol>
       <li>Scegli il <strong>livello</strong> e (facoltativo) <strong>Snap interi</strong> o <strong>Boolean</strong>.</li>
       <li>Trascina il punto giallo nella <strong>regione ammissibile</strong>.</li>
       <li>Premi <strong>Verifica</strong> per confrontare il tuo valore con l'ottimo.</li>
-      <li>Usa <strong>Hint</strong> per vedere la retta obiettivo; <strong>Simplex step</strong> per vedere pivot didattici.</li>
+      <li>Usa <strong>Hint</strong> per vedere la retta obiettivo, <strong>Simplex step</strong> per i pivot.</li>
     </ol>
     <div class="controls">
       <label><input type="checkbox" id="dontShow"> Non mostrare più</label>

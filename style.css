@@ -1,4 +1,4 @@
-/* Dantzig Game — stile */
+/* Dantzig Game — stile responsive con toggle altezza */
 :root{
   --bg:#0e0f12; --fg:#e9e9ef; --muted:#9aa0a6;
   --primary:#4dd0e1; --accent:#fdd663; --danger:#ff6b6b; --ok:#81c784;
@@ -19,7 +19,7 @@ button:active{transform:translateY(1px)}
 main{flex:1; display:grid; grid-template-columns:1fr 380px; gap:16px; padding:16px}
 #left{display:flex; flex-direction:column; gap:8px; min-width:0}
 #plotWrap{position:relative; width:100%; height:auto; flex:1; display:flex}
-#plot{display:block; width:100%; height:auto; background:#0b0c10; border:1px solid #222; border-radius:8px}
+#plot{display:block; width:100%; height:auto; background:#0b0c10; border:1px solid #222; border-radius:8px; touch-action:none}
 #legend{display:flex; gap:16px; flex-wrap:wrap; color:var(--muted)}
 .chip{display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:6px; vertical-align:middle}
 .feasible{background:var(--feasible)}
@@ -38,7 +38,6 @@ a{color:var(--primary)}
 dialog{border:none; border-radius:10px; padding:16px; background:#151720; color:var(--fg); width:min(680px, 92vw)}
 dialog::backdrop{background:rgba(0,0,0,0.4)}
 footer small{display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:center}
-
 @media (max-width: 980px){
   main{grid-template-columns:1fr}
   #plot{height:auto}
