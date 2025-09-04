@@ -1,1 +1,112 @@
-<!doctype html><html><head><meta charset='utf-8'><title>Dantzig Game</title></head><body><h1>Dantzig Game</h1><p>A PWA puzzle inspired by George Dantzig.</p></body></html>
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Dantzig Game — LP Puzzle</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#111111">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-512.png">
+  <meta name="description" content="Un gioco ispirato a George Dantzig: massimizza una funzione obiettivo sotto vincoli lineari.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Dantzig Game <span class="badge">LP</span></h1>
+    <button id="newBtn" class="primary">Nuovo</button>
+    <button id="checkBtn">Verifica</button>
+    <button id="hintBtn">Hint</button>
+    <label class="toggle">Snap interi <input type="checkbox" id="snapInt"></label>
+    <label class="toggle">Boolean {0,1} <input type="checkbox" id="boolMode"></label>
+    <label>Livello
+      <select id="levelSel">
+        <option value="easy">Facile</option>
+        <option value="medium">Medio</option>
+        <option value="hard">Difficile</option>
+      </select>
+    </label>
+    <button id="simplexBtn">Simplex step</button>
+    <button id="helpBtn" aria-label="Aiuto">?</button>
+    <span class="spacer"></span>
+    <span id="bestScore">Best: —</span>
+    <span id="status">—</span>
+  </header>
+
+  <main>
+    <section id="left">
+      <canvas id="plot" width="700" height="700" aria-label="Grafico vincoli"></canvas>
+      <div id="legend">
+        <div><span class="chip feasible"></span>Regione ammissibile</div>
+        <div><span class="chip constraint"></span>Vincoli</div>
+        <div><span class="chip objective"></span>Linea obiettivo</div>
+        <div><span class="chip player"></span>Tuo punto</div>
+        <div><span class="chip optimum"></span>Ottimo</div>
+      </div>
+    </section>
+
+    <section id="right">
+      <div class="card">
+        <h2>Problema</h2>
+        <p id="problemText"></p>
+        <details>
+          <summary>Vincoli</summary>
+          <pre id="constraintsText"></pre>
+        </details>
+      </div>
+
+      <div class="card">
+        <h2>Tentativo</h2>
+        <div class="controls">
+          <label>x: <input type="number" step="0.1" id="xVal"></label>
+          <label>y: <input type="number" step="0.1" id="yVal"></label>
+          <button id="centerBtn">Centra</button>
+        </div>
+        <p>Trascina il punto sul grafico oppure inserisci x e y.</p>
+      </div>
+
+      <div class="card">
+        <h2>Punteggio</h2>
+        <p id="scoreBox">—</p>
+        <p class="muted">Bonus: +10 se in modalità intera/booleana e il punto è ammissibile.</p>
+      </div>
+
+      <div class="card">
+        <h2>Simplex (pivot su vertici)</h2>
+        <div class="controls">
+          <button id="sxPrev">⟵</button>
+          <button id="sxNext">⟶</button>
+          <span id="sxStep">—</span>
+        </div>
+        <p class="muted">Visualizza una sequenza di vertici con miglioramenti dell'obiettivo (approccio didattico).</p>
+      </div>
+
+      <div class="card">
+        <h2>Note</h2>
+        <p>I problemi sono generati in modo che l'ottimo cada in un vertice della regione ammissibile (PL classica). La retta dell'obiettivo è una curva di livello di z = c₁x + c₂y.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <small>© 2025 PezzaliAPP — Dantzig Game (MIT). PWA offline. <a href="#" id="installLink">Installa</a></small>
+  </footer>
+
+  <!-- Tutorial Modal -->
+  <dialog id="tutorial">
+    <h2>Come si gioca</h2>
+    <ol>
+      <li>Scegli il <strong>livello</strong> e (facoltativo) <strong>Snap interi</strong> o <strong>Boolean</strong>.</li>
+      <li>Trascina il punto giallo nella <strong>regione ammissibile</strong>.</li>
+      <li>Premi <strong>Verifica</strong> per confrontare il tuo valore con l'ottimo.</li>
+      <li>Usa <strong>Hint</strong> per vedere la retta obiettivo; <strong>Simplex step</strong> per vedere pivot didattici.</li>
+    </ol>
+    <div class="controls">
+      <label><input type="checkbox" id="dontShow"> Non mostrare più</label>
+      <button id="closeTutorial" class="primary">OK</button>
+    </div>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
