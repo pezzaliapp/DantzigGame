@@ -321,7 +321,6 @@
     yVal.value = player.y.toFixed(2);
     draw();
   }
-  let dragging=false;
   canvas.addEventListener('mousedown', e=>{ dragging=true; onDragLike(e); });
   canvas.addEventListener('mousemove', e=>{ if(dragging) onDragLike(e); });
   window.addEventListener('mouseup', ()=> dragging=false);
