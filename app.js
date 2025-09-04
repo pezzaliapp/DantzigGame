@@ -18,6 +18,9 @@
   const scoreBox = document.getElementById('scoreBox');
   const status = document.getElementById('status');
   const levelSel = document.getElementById('levelSel');
+  const modeSel = document.getElementById('modeSel');
+  const timerEl = document.getElementById('timer');
+  const probeBtn = document.getElementById('probeBtn');
   const bestScoreEl = document.getElementById('bestScore');
   const simplexBtn = document.getElementById('simplexBtn');
   const sxPrev = document.getElementById('sxPrev');
@@ -62,6 +65,9 @@
   let dragging = false;
   let hint = false;
   let simplexPath = []; let simplexIndex = 0;
+  let gameMode = 'classic';
+  let secsLeft = 60; let timerId = null;
+  let hidden = { visible: [], probes: 0 };
 
   // ---- Utils ----
   const irnd = (a,b)=>Math.floor(Math.random()*(b-a+1))+a;
@@ -100,6 +106,9 @@
     player.x = Math.min(2, Xmax/2); player.y = Math.min(2, Ymax/2);
     hint = false; updateTexts(); status.textContent = 'Nuovo problema.'; scoreBox.textContent='—';
     simplexPath=[]; simplexIndex=0; loadBest(); draw(); resizeCanvas();
+    // Mode-specific init
+    if(gameMode==='time'){ startTimer(); }
+    if(gameMode==='hidden'){ hidden = { visible: [], probes: 0 }; }
   }
 
   function feasible(p, quantize=false){
@@ -199,7 +208,8 @@
 
   function drawConstraints(){
     const {Xmax,Ymax,slants} = world;
-    for(const s of slants){
+    const linesToDraw = (gameMode==='hidden') ? hidden.visible : slants;
+    for(const s of linesToDraw){
       const pts = [];
       if(s.b!==0){ const y=s.d/s.b; if(y>=0 && y<=Ymax) pts.push([0,y]); }
       if(s.a!==0){ const x=s.d/s.a; if(x>=0 && x<=Xmax) pts.push([x,0]); }
@@ -214,12 +224,15 @@
         ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
       }
     }
-    ctx.fillStyle = 'rgba(30,136,229,0.15)';
-    const step = 2;
-    for(let sx=PAD; sx<=W-PAD; sx+=step){
-      for(let sy=PAD; sy<=H-PAD; sy+=step){
-        const [x,y]=toWorld(sx,sy);
-        if(feasible([x,y], false)) ctx.fillRect(sx,sy,step,step);
+    // Region shading (skip in hidden mode per non spoilerare)
+    if(gameMode!=='hidden'){
+      ctx.fillStyle = 'rgba(30,136,229,0.15)';
+      const step = 2;
+      for(let sx=PAD; sx<=W-PAD; sx+=step){
+        for(let sy=PAD; sy<=H-PAD; sy+=step){
+          const [x,y]=toWorld(sx,sy);
+          if(feasible([x,y], false)) ctx.fillRect(sx,sy,step,step);
+        }
       }
     }
   }
@@ -410,7 +423,9 @@
     const ratio = Math.max(0, Math.min(1, myVal / (bestVal || 1)));
     let score = Math.round(ratio * 100);
     let bonus = 0;
-    if(within && (snapInt.checked || boolMode.checked)) bonus = 10;
+    if(within && (snapInt.checked || boolMode.checked)) bonus += 10;
+    if(gameMode==='time'){ bonus += Math.round((secsLeft/60)*30); } // fino a +30
+    if(gameMode==='hidden'){ bonus += Math.max(0, 15 - hidden.probes*5); } // premia meno sonde
     score = Math.min(100, score + bonus);
     scoreBox.textContent = within
       ? `z=${myVal.toFixed(2)} | z*=${bestVal.toFixed(2)} → Punteggio: ${score}/100 ${bonus?`(+${bonus} bonus)`:''}`
@@ -418,6 +433,7 @@
     drawGrid(); drawConstraints(); drawSimplexStep(); drawPlayer(); if(hint) drawHintOverlay();
     status.textContent = within ? (score>=100 ? 'Perfetto! Vertice ottimo.' : 'Ammissibile. Puoi migliorare.') : 'Fuori dalla regione ammissibile.';
     if(within) saveBest(score);
+    if(gameMode==='time') stopTimer();
   });
 
   simplexBtn.addEventListener('click', ()=>{ buildSimplexPath(); simplexIndex=0; updateSimplexLabel(); draw(); });
@@ -440,3 +456,46 @@
   resizeCanvas();
   maybeShowTutorial();
 })();
+
+  function startTimer(){
+    stopTimer();
+    secsLeft = 60;
+    timerEl.style.display = (gameMode==='time') ? 'inline' : 'none';
+    if(gameMode!=='time') return;
+    timerEl.textContent = secsLeft + 's';
+    timerId = setInterval(()=>{
+      secsLeft = Math.max(0, secsLeft-1);
+      timerEl.textContent = secsLeft + 's';
+      if(secsLeft===0){ stopTimer(); status.textContent='Tempo scaduto! Verifica per punteggio finale.'; }
+    }, 1000);
+  }
+  function stopTimer(){ if(timerId){ clearInterval(timerId); timerId=null; } }
+
+  // ---- Hidden constraints: probe ----
+  probeBtn.addEventListener('click', ()=>{
+    if(gameMode!=='hidden'){ return; }
+    // find violated hidden constraints
+    const violated = world.slants.filter(s=> !hidden.visible.includes(s) && (s.a*player.x + s.b*player.y > s.d + 1e-9));
+    if(violated.length){
+      hidden.visible.push(violated[0]); // reveal one
+      hidden.probes += 1;
+      status.textContent = 'Hai rivelato un vincolo nascosto.';
+    }else{
+      status.textContent = 'Nessun nuovo vincolo: prova a spostare il punto.';
+    }
+    draw();
+  });
+
+  // ---- Mode switching ----
+  function applyModeUI(){
+    timerEl.style.display = (gameMode==='time') ? 'inline' : 'none';
+    probeBtn.style.display = (gameMode==='hidden') ? 'inline' : 'none';
+  }
+  modeSel.addEventListener('change', ()=>{
+    gameMode = modeSel.value;
+    applyModeUI();
+    genProblem(); // restart with new mode
+  });
+  // init
+  gameMode = modeSel.value;
+  applyModeUI();

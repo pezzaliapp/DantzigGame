@@ -19,6 +19,15 @@
     <label class="toggle">Snap interi <input type="checkbox" id="snapInt"></label>
     <label class="toggle">Boolean {0,1} <input type="checkbox" id="boolMode"></label>
     <label class="toggle">Adatta in altezza <input type="checkbox" id="fitHeight"></label>
+    <label>Modalità
+      <select id="modeSel">
+        <option value="classic">Classica</option>
+        <option value="time">Tempo ⏱️</option>
+        <option value="hidden">Vincoli nascosti 🔒</option>
+      </select>
+    </label>
+    <span id="timer" class="muted" style="min-width:70px;display:none;">60s</span>
+    <button id="probeBtn" style="display:none;">Sonda</button>
     <label>Livello
       <select id="levelSel">
         <option value="easy">Facile</option>
