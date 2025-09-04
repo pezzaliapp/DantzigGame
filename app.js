@@ -86,7 +86,7 @@
     const Xmax = irnd(8,16), Ymax = irnd(8,16);
     const c1 = irnd(1,8), c2 = irnd(1,8);
     const slants = [];
-    const nObl = level==='easy' ? 2 : level==='medium' ? 3 : 4;
+    const nObl = level==='easy' ? 2 : level==='medium' ? 3 : level==='hard' ? 4 : level==='expert' ? 5 : 6;
     for(let i=0;i<nObl;i++){
       const a = irnd(1,7), b = irnd(1,7);
       const px = irnd(Math.floor(Xmax*0.35), Math.floor(Xmax*0.9));

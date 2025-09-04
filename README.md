@@ -17,7 +17,12 @@ Gioco/puzzle ispirato a **George Dantzig**. Obiettivo: massimizzare
 - Il best viene salvato in `localStorage` per livello e opzioni.
 
 ## 📚 Livelli
-- **Facile** (2 vincoli obliqui) • **Medio** (3) • **Difficile** (4).  
+- **Facile** (2 vincoli obliqui)
+- **Medio** (3 vincoli obliqui)
+- **Difficile** (4 vincoli obliqui)
+- **Esperto** (5 vincoli obliqui)
+- **Maestro** (6 vincoli obliqui)
+
 L’ottimo cade in un **vertice** della regione ammissibile.
 
 ## ⚙️ Tecnico
