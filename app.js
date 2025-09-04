@@ -256,18 +256,39 @@
 
   function drawObjective(lineThroughPoint=null){
     const [c1,c2]=world.c;
-    let k;
-    if(lineThroughPoint){
-      k = objectiveValue(lineThroughPoint[0], lineThroughPoint[1]);
-    }else{
-      k = objectiveValue(world.Xmax*0.6, world.Ymax*0.6);
+    // Level set: c1*x + c2*y = k
+    let k = lineThroughPoint ? objectiveValue(lineThroughPoint[0], lineThroughPoint[1])
+                             : objectiveValue(world.Xmax*0.6, world.Ymax*0.6);
+    const {Xmax,Ymax} = world;
+    const cand = [];
+    // Intersections with rectangle borders
+    // x = 0 => y = k/c2
+    if (Math.abs(c2) > 1e-9) {
+      const y0 = k / c2;
+      if (y0 >= 0 && y0 <= Ymax) cand.push([0, y0]);
     }
-    const pts = [];
-    if(c1!==0){ pts.push([k/c1, 0]); }
-    if(c2!==0){ pts.push([0, k/c2]); }
-    const clip = pts.filter(p=>p[0]>=0 && p[1]>=0 && p[0]<=world.Xmax && p[1]<=world.Ymax);
-    if(clip.length>=2){
-      const [p1,p2]=clip;
+    // x = Xmax => y = (k - c1*Xmax)/c2
+    if (Math.abs(c2) > 1e-9) {
+      const yR = (k - c1*Xmax) / c2;
+      if (yR >= 0 && yR <= Ymax) cand.push([Xmax, yR]);
+    }
+    // y = 0 => x = k/c1
+    if (Math.abs(c1) > 1e-9) {
+      const x0 = k / c1;
+      if (x0 >= 0 && x0 <= Xmax) cand.push([x0, 0]);
+    }
+    // y = Ymax => x = (k - c2*Ymax)/c1
+    if (Math.abs(c1) > 1e-9) {
+      const xT = (k - c2*Ymax) / c1;
+      if (xT >= 0 && xT <= Xmax) cand.push([xT, Ymax]);
+    }
+    // Deduplicate close points
+    const uniq = [];
+    for (const p of cand){
+      if (!uniq.some(q=>Math.hypot(q[0]-p[0], q[1]-p[1])<1e-6)) uniq.push(p);
+    }
+    if (uniq.length >= 2){
+      const [p1,p2] = uniq.slice(0,2);
       const [x1,y1]=toScreen(p1[0],p1[1]);
       const [x2,y2]=toScreen(p2[0],p2[1]);
       ctx.strokeStyle = '#f4511e';
