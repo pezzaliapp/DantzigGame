@@ -64,7 +64,7 @@
   let player = { x: 2, y: 2 };
   let dragging = false;
   let hint = false;
-  let simplexPath = []; let simplexIndex = 0;
+  let simplexPath = []; let simplexIndex = 0; let simplexActive = false;
   let gameMode = 'classic';
   let secsLeft = 60; let timerId = null;
   let hidden = { visible: [], probes: 0 };
@@ -105,7 +105,8 @@
     view  = { xmin:0, xmax:Xmax, ymin:0, ymax:Ymax };
     player.x = Math.min(2, Xmax/2); player.y = Math.min(2, Ymax/2);
     hint = false; updateTexts(); status.textContent = 'Nuovo problema.'; scoreBox.textContent='—';
-    simplexPath=[]; simplexIndex=0; loadBest(); draw(); resizeCanvas();
+    simplexPath=[]; simplexIndex=0; simplexActive=false; loadBest(); draw(); resizeCanvas();
+    updateSimplexUI();
     // Mode-specific init
     if(gameMode==='time'){ startTimer(); }
     if(gameMode==='hidden'){ hidden = { visible: [], probes: 0 }; }
@@ -318,7 +319,7 @@
   function draw(){
     drawGrid();
     drawConstraints();
-    drawSimplexStep();
+    if(simplexActive) drawSimplexStep();
     drawPlayer();
     if(hint) drawHintOverlay();
   }
@@ -412,7 +413,20 @@
   levelSel.addEventListener('change', genProblem);
   hintBtn.addEventListener('click', ()=>{ hint = !hint; hintBtn.classList.toggle('primary', hint); status.textContent = hint ? 'Hint attivo' : 'Hint disattivato'; draw(); });
   /* HEADER SIMPLEX LISTENER */
-  simplexBtn.addEventListener('click', ()=>{ buildSimplexPath(); simplexIndex=0; updateSimplexLabel(); draw(); });
+  simplexBtn.addEventListener('click', ()=>{
+    if(!simplexActive){
+      buildSimplexPath();
+      simplexIndex = 0;
+      simplexActive = simplexPath.length>0;
+    } else {
+      // turn off visualization
+      simplexActive = false;
+      simplexPath = [];
+      simplexIndex = 0;
+    }
+    updateSimplexUI();
+    draw();
+  });
   centerBtn.addEventListener('click', ()=>{ xVal.value = player.x.toFixed(2); yVal.value = player.y.toFixed(2); draw(); });
   [snapInt, boolMode].forEach(el=> el.addEventListener('change', ()=>{ draw(); loadBest(); }));
 
@@ -439,8 +453,8 @@
   });
 
   
-  sxPrev?.addEventListener('click', ()=>{ if(simplexPath.length){ simplexIndex = Math.max(0, simplexIndex-1); updateSimplexLabel(); draw(); } });
-  sxNext?.addEventListener('click', ()=>{ if(simplexPath.length){ simplexIndex = Math.min(simplexPath.length-1, simplexIndex+1); updateSimplexLabel(); draw(); } });
+  sxPrev?.addEventListener('click', ()=>{ if(simplexPath.length){ simplexActive=true; simplexIndex = Math.max(0, simplexIndex-1); updateSimplexUI(); draw(); } });
+  sxNext?.addEventListener('click', ()=>{ if(simplexPath.length){ simplexActive=true; simplexIndex = Math.min(simplexPath.length-1, simplexIndex+1); updateSimplexUI(); draw(); } });
 
   // ---- Tutorial ----
   helpBtn.addEventListener('click', ()=> tutorial.showModal());
@@ -496,6 +510,7 @@
   modeSel.addEventListener('change', ()=>{
     gameMode = modeSel.value;
     applyModeUI();
+    simplexActive=false; simplexPath=[]; simplexIndex=0; updateSimplexUI();
     genProblem(); // restart with new mode
   });
   // init
@@ -504,8 +519,21 @@
 
 // Re-bind simplexBtn (header) to trigger simplex path
 simplexBtn.addEventListener('click', ()=>{
-  buildSimplexPath();
-  simplexIndex = 0;
-  updateSimplexLabel();
-  draw();
-});
+    if(!simplexActive){
+      buildSimplexPath();
+      simplexIndex = 0;
+      simplexActive = simplexPath.length>0;
+    } else {
+      // turn off visualization
+      simplexActive = false;
+      simplexPath = [];
+      simplexIndex = 0;
+    }
+    updateSimplexUI();
+    draw();
+  });
+
+  function updateSimplexUI(){
+    if(simplexBtn){ simplexBtn.classList.toggle('primary', simplexActive && simplexPath.length>0); }
+    updateSimplexLabel();
+  }
