@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Dantzig Game — LP Puzzle</title>
   <link rel="manifest" href="manifest.json">
-  <meta name="theme-color" content="#111111">
+  <meta name="theme-color" content="#111318">
   <link rel="icon" href="icon-192.png">
   <link rel="apple-touch-icon" href="icon-512.png">
   <meta name="description" content="Un gioco ispirato a George Dantzig: massimizza una funzione obiettivo sotto vincoli lineari.">
@@ -19,6 +19,7 @@
     <button id="hintBtn">Hint</button>
     <label class="toggle">Snap interi <input type="checkbox" id="snapInt"></label>
     <label class="toggle">Boolean {0,1} <input type="checkbox" id="boolMode"></label>
+    <label class="toggle">Adatta in altezza <input type="checkbox" id="fitHeight"></label>
     <label>Livello
       <select id="levelSel">
         <option value="easy">Facile</option>
@@ -26,7 +27,6 @@
         <option value="hard">Difficile</option>
       </select>
     </label>
-    <label class="toggle">Adatta in altezza <input type="checkbox" id="fitHeight"></label>
     <button id="simplexBtn">Simplex step</button>
     <button id="helpBtn" aria-label="Aiuto">?</button>
     <span class="spacer"></span>
@@ -93,7 +93,7 @@
     <small>© 2025 PezzaliAPP — Dantzig Game (MIT). PWA offline. <a href="#" id="installLink">Installa</a></small>
   </footer>
 
-  
+  <!-- Tutorial Modal: spiegazione "a prova di bambino" -->
   <dialog id="tutorial">
     <h2>Come si gioca a Dantzig Game</h2>
 
@@ -131,7 +131,6 @@
       <button id="closeTutorial" class="primary">OK</button>
     </div>
   </dialog>
-
 
   <script src="app.js"></script>
 </body>
