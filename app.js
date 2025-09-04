@@ -369,8 +369,8 @@
     drawGrid();
     drawConstraints();
     if(hint) drawHint();
-    drawPlayer();
     drawSimplexStep();
+    drawPlayer();
   }
 
   // ---- Texts ----
@@ -531,11 +531,10 @@
 
 // ---- Hint overlay ----
 function drawHint(){
+  ctx.save();
   // draw level set through player + gradient arrow + labels
   drawObjective([player.x, player.y]);
   // status watermark
-  ctx.save();
-  ctx.globalAlpha = 0.6;
   ctx.fillStyle = '#ff9800';
   ctx.font = 'bold 12px system-ui';
   ctx.fillText('HINT attivo', PAD+8, PAD+16);
