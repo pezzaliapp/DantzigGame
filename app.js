@@ -1,4 +1,4 @@
-/* Dantzig Game — avanzato + responsive (clean build) */
+/* Dantzig Game — clean build with robust Hint */
 (function(){
   'use strict';
   // ---- DOM ----
@@ -41,44 +41,31 @@
     const vpH = window.innerHeight;
     const maxH = Math.max(320, vpH - headerH - footerH - 24);
     const cssW = wrap.clientWidth || 700;
-    // Aspect ratio 1:1 on small screens unless fitHeight is ON
     let cssH;
-    if (vpW < 600 && !fitHeight.checked) {
-      cssH = cssW; // square
-    } else if (fitHeight.checked) {
-      cssH = Math.min(cssW, maxH); // fill height, bounded
-    } else {
-      cssH = Math.min(cssW, maxH);
-    }
+    if (vpW < 600 && !fitHeight.checked) cssH = cssW; else cssH = Math.min(cssW, maxH);
     const dpr = Math.min(3, window.devicePixelRatio || 1);
-    canvas.style.width = cssW + 'px';
-    canvas.style.height = cssH + 'px';
-    canvas.width = Math.round(cssW * dpr);
-    canvas.height = Math.round(cssH * dpr);
+    canvas.style.width = cssW + 'px'; canvas.style.height = cssH + 'px';
+    canvas.width = Math.round(cssW * dpr); canvas.height = Math.round(cssH * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     W = cssW; H = cssH;
     draw();
   }
-  const ro = new ResizeObserver(()=> resizeCanvas());
-  ro.observe(wrap);
+  const ro = new ResizeObserver(()=> resizeCanvas()); ro.observe(wrap);
   window.addEventListener('resize', resizeCanvas);
   window.addEventListener('orientationchange', resizeCanvas);
   fitHeight.addEventListener('change', resizeCanvas);
 
   // ---- State ----
   let world = { Xmax: 12, Ymax: 12, c:[3,2], slants: [], level:'easy' };
-  let view  = { xmin:0, xmax:12, ymin:0, ymax:12 }; // viewbox for zoom/pan
+  let view  = { xmin:0, xmax:12, ymin:0, ymax:12 };
   let player = { x: 2, y: 2 };
   let dragging = false;
   let hint = false;
-  let pwaEvent = null;
-  let simplexPath = []; // list of vertices
-  let simplexIndex = 0;
+  let simplexPath = []; let simplexIndex = 0;
 
   // ---- Utils ----
   const irnd = (a,b)=>Math.floor(Math.random()*(b-a+1))+a;
   const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
-
   function key(){ return `dantzig.best.${world.level}.${boolMode.checked?'bool':snapInt.checked?'int':'cont'}`; }
   function loadBest(){ const v = localStorage.getItem(key()); bestScoreEl.textContent = v? `Best: ${v}/100` : 'Best: —'; }
   function saveBest(score){ const cur = parseInt(localStorage.getItem(key())||'0',10); if(score>cur){ localStorage.setItem(key(), String(score)); loadBest(); } }
@@ -110,17 +97,9 @@
     }
     world = { Xmax, Ymax, c:[c1,c2], slants, level };
     view  = { xmin:0, xmax:Xmax, ymin:0, ymax:Ymax };
-    player.x = Math.min(2, Xmax/2);
-    player.y = Math.min(2, Ymax/2);
-    hint = false;
-    updateTexts();
-    status.textContent = 'Nuovo problema.';
-    scoreBox.textContent = '—';
-    simplexPath = [];
-    simplexIndex = 0;
-    loadBest();
-    draw();
-    resizeCanvas();
+    player.x = Math.min(2, Xmax/2); player.y = Math.min(2, Ymax/2);
+    hint = false; updateTexts(); status.textContent = 'Nuovo problema.'; scoreBox.textContent='—';
+    simplexPath=[]; simplexIndex=0; loadBest(); draw(); resizeCanvas();
   }
 
   function feasible(p, quantize=false){
@@ -131,8 +110,7 @@
     for(const s of slants){ if(s.a*x + s.b*y - s.d > 1e-9) return false; }
     return true;
   }
-
-  function objectiveValue(x,y){ const [c1,c2]=world.c; return c1*x + c2*y; }
+  const objectiveValue = (x,y)=> world.c[0]*x + world.c[1]*y;
 
   function lineIntersections(lines){
     const pts = [];
@@ -176,7 +154,7 @@
     return {ok:true, point:best, value:bestVal, verts};
   }
 
-  // ---- Simplex path (didattico) ----
+  // ---- Simplex (didattico) ----
   function buildSimplexPath(){
     const opt = computeOptimum();
     if(!opt.ok){ simplexPath=[]; simplexIndex=0; updateSimplexLabel(); return; }
@@ -195,18 +173,10 @@
       current = next;
       if(Math.hypot(current[0]-goal[0], current[1]-goal[1])<1e-6) break;
     }
-    if(Math.hypot(path[path.length-1][0]-goal[0], path[path.length-1][1]-goal[1])>1e-6){
-      path.push(goal);
-    }
-    simplexPath = path;
-    simplexIndex = 0;
-    updateSimplexLabel();
+    if(Math.hypot(path[path.length-1][0]-goal[0], path[path.length-1][1])>1e-6) path.push(goal);
+    simplexPath = path; simplexIndex=0; updateSimplexLabel();
   }
-
-  function updateSimplexLabel(){
-    if(simplexPath.length===0){ sxStep.textContent = '—'; return; }
-    sxStep.textContent = `Step ${simplexIndex+1}/${simplexPath.length}`;
-  }
+  function updateSimplexLabel(){ sxStep.textContent = simplexPath.length? `Step ${simplexIndex+1}/${simplexPath.length}`:'—'; }
 
   // ---- Drawing ----
   function drawGrid(){
@@ -254,62 +224,29 @@
     }
   }
 
-  function drawObjective(lineThroughPoint=null){
-    const [c1,c2]=world.c;
-    // k from point or default
-    let k = lineThroughPoint ? objectiveValue(lineThroughPoint[0], lineThroughPoint[1])
-                             : objectiveValue((view.xmin+view.xmax)/2, (view.ymin+view.ymax)/2);
-
-    // Intersections with the *viewbox* rectangle
-    const cand = [];
-    const xmin=view.xmin, xmax=view.xmax, ymin=view.ymin, ymax=view.ymax;
-    // x=xmin => y = (k - c1*xmin)/c2
-    if (Math.abs(c2) > 1e-9){
-      const yL = (k - c1*xmin)/c2; if (yL>=ymin && yL<=ymax) cand.push([xmin,yL]);
-      const yR = (k - c1*xmax)/c2; if (yR>=ymin && yR<=ymax) cand.push([xmax,yR]);
+  function drawSimplexStep(){
+    if(simplexPath.length===0) return;
+    const p = simplexPath[simplexIndex];
+    // polyline
+    ctx.strokeStyle = '#00e676';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    for(let i=0;i<=simplexIndex;i++){
+      const [sx,sy]=toScreen(simplexPath[i][0], simplexPath[i][1]);
+      if(i===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
     }
-    // y=ymin/ymax => x = (k - c2*y)/c1
-    if (Math.abs(c1) > 1e-9){
-      const xB = (k - c2*ymin)/c1; if (xB>=xmin && xB<=xmax) cand.push([xB,ymin]);
-      const xT = (k - c2*ymax)/c1; if (xT>=xmin && xT<=xmax) cand.push([xT,ymax]);
-    }
-
-    // Dedup + require 2 points
-    const uniq=[];
-    for(const p of cand){ if(!uniq.some(q=>Math.hypot(q[0]-p[0], q[1]-p[1])<1e-6)) uniq.push(p); }
-    if (uniq.length>=2){
-      const [p1,p2]=uniq.slice(0,2);
-      const [x1,y1]=toScreen(p1[0],p1[1]);
-      const [x2,y2]=toScreen(p2[0],p2[1]);
-      ctx.strokeStyle = '#ff9800';
-      ctx.lineWidth = 2.5;
-      ctx.setLineDash([6,6]);
-      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-      ctx.setLineDash([]);
-      /* HINT LABEL */
-      const mx=(x1+x2)/2, my=(y1+y2)/2; ctx.fillStyle='#ff9800'; ctx.font='12px system-ui'; ctx.fillText('z = costante', mx+6, my-6);
-    }
-
-    // Draw a small arrow at player showing ascent direction (gradient [c1,c2])
-    if (lineThroughPoint){
-      const [sx,sy]=toScreen(lineThroughPoint[0], lineThroughPoint[1]);
-      const len = 28; // pixels
-      const norm = Math.hypot(c1,c2) || 1;
-      const dx = (c1/norm)*len, dy = -(c2/norm)*len; // minus because y is inverted on screen
-      // main line
-      ctx.strokeStyle = '#f4511e';
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(sx+dx, sy+dy); ctx.stroke(); ctx.fillStyle='#ff9800'; ctx.font='12px system-ui'; ctx.fillText('più z →', sx+dx+6, sy+dy-6);
-      // arrow head
-      const angle = Math.atan2(dy, dx);
-      const ah = 8;
+    ctx.stroke();
+    // arrowhead
+    if(simplexIndex>0){
+      const [sxA,syA]=toScreen(simplexPath[simplexIndex-1][0], simplexPath[simplexIndex-1][1]);
+      const [sxB,syB]=toScreen(simplexPath[simplexIndex][0], simplexPath[simplexIndex][1]);
+      const angle = Math.atan2(syB - syA, sxB - sxA);
+      const ah=9; ctx.fillStyle='#00e676';
       ctx.beginPath();
-      ctx.moveTo(sx+dx, sy+dy);
-      ctx.lineTo(sx+dx - ah*Math.cos(angle - Math.PI/6), sy+dy - ah*Math.sin(angle - Math.PI/6));
-      ctx.lineTo(sx+dx - ah*Math.cos(angle + Math.PI/6), sy+dy - ah*Math.sin(angle + Math.PI/6));
-      ctx.closePath();
-      ctx.fillStyle = '#f4511e';
-      ctx.fill();
+      ctx.moveTo(sxB, syB);
+      ctx.lineTo(sxB - ah*Math.cos(angle - Math.PI/6), syB - ah*Math.sin(angle - Math.PI/6));
+      ctx.lineTo(sxB - ah*Math.cos(angle + Math.PI/6), syB - ah*Math.sin(angle + Math.PI/6));
+      ctx.closePath(); ctx.fill();
     }
   }
 
@@ -323,46 +260,46 @@
     ctx.fillText(`(${px.toFixed(2)}, ${py.toFixed(2)})`, sx+8, sy-8);
   }
 
-  function drawOptimum(opt){
-    if(!opt?.ok) return;
-    const [sx,sy]=toScreen(opt.point[0], opt.point[1]);
-    ctx.fillStyle = '#81c784';
-    ctx.beginPath(); ctx.arc(sx,sy,6,0,Math.PI*2); ctx.fill();
-  }
-
-  function drawSimplexStep(){
-    if(simplexPath.length===0) return;
-    const p = simplexPath[simplexIndex];
-    // draw objective through current simplex vertex
-    drawObjective(p);
-    // draw polyline for visited vertices
-    ctx.strokeStyle = '#00e676';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    for(let i=0;i<=simplexIndex;i++){
-      const [sx,sy]=toScreen(simplexPath[i][0], simplexPath[i][1]);
-      if(i===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
-    }
-    ctx.stroke();
-    /* SIMPLEX ARROWHEAD */
-    if(simplexIndex>0){
-      const [sxA,syA]=toScreen(simplexPath[simplexIndex-1][0], simplexPath[simplexIndex-1][1]);
-      const [sxB,syB]=toScreen(simplexPath[simplexIndex][0], simplexPath[simplexIndex][1]);
-      const angle = Math.atan2(syB - syA, sxB - sxA);
-      const ah = 9;
-      ctx.fillStyle = '#00e676';
-      ctx.beginPath();
-      ctx.moveTo(sxB, syB);
-      ctx.lineTo(sxB - ah*Math.cos(angle - Math.PI/6), syB - ah*Math.sin(angle - Math.PI/6));
-      ctx.lineTo(sxB - ah*Math.cos(angle + Math.PI/6), syB - ah*Math.sin(angle + Math.PI/6));
-      ctx.closePath(); ctx.fill();
-    }
-    // draw points
-    ctx.fillStyle = '#81c784';
-    for(let i=0;i<=simplexIndex;i++){
-      const [sx,sy]=toScreen(simplexPath[i][0], simplexPath[i][1]);
-      ctx.beginPath(); ctx.arc(sx,sy,4,0,Math.PI*2); ctx.fill();
-    }
+  // ---- Hint overlay (robust, drawn last) ----
+  function drawHintOverlay(){
+    try{
+      const [c1,c2]=world.c;
+      // Direction tangent to level set
+      const tx=c2, ty=-c1, normT=Math.hypot(tx,ty)||1, dir={x:tx/normT, y:ty/normT};
+      const p0={x:player.x, y:player.y};
+      const xmin=view.xmin, xmax=view.xmax, ymin=view.ymin, ymax=view.ymax;
+      const ts=[];
+      if(Math.abs(dir.x)>1e-9){ ts.push((xmin-p0.x)/dir.x, (xmax-p0.x)/dir.x); }
+      if(Math.abs(dir.y)>1e-9){ ts.push((ymin-p0.y)/dir.y, (ymax-p0.y)/dir.y); }
+      const cand=[];
+      for(const t of ts){
+        const x=p0.x+t*dir.x, y=p0.y+t*dir.y;
+        if(x>=xmin-1e-6&&x<=xmax+1e-6&&y>=ymin-1e-6&&y<=ymax+1e-6) cand.push([x,y]);
+      }
+      const uniq=[];
+      for(const p of cand){ if(!uniq.some(q=>Math.hypot(q[0]-p[0], q[1]-p[1])<1e-5)) uniq.push(p); }
+      if(uniq.length>=2){
+        uniq.sort((a,b)=> (Math.hypot(a[0]-p0.x,a[1]-p0.y) - Math.hypot(b[0]-p0.x,b[1]-p0.y)) );
+        const pA=uniq[0], pB=uniq[uniq.length-1];
+        const [x1,y1]=toScreen(pA[0],pA[1]); const [x2,y2]=toScreen(pB[0],pB[1]);
+        ctx.save();
+        ctx.strokeStyle='#ff9800'; ctx.lineWidth=2.5; ctx.setLineDash([6,6]);
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); ctx.setLineDash([]);
+        // ascent arrow
+        const gnorm=Math.hypot(c1,c2)||1, gx=(c1/gnorm)*28, gy=(c2/gnorm)*28;
+        const [sx,sy]=toScreen(player.x, player.y);
+        const dx=gx*(W-2*PAD)/(view.xmax-view.xmin), dy=-gy*(H-2*PAD)/(view.ymax-view.ymin);
+        ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(sx+dx, sy+dy); ctx.stroke();
+        const angle=Math.atan2(dy,dx), ah=8;
+        ctx.beginPath(); ctx.moveTo(sx+dx, sy+dy);
+        ctx.lineTo(sx+dx - ah*Math.cos(angle - Math.PI/6), sy+dy - ah*Math.sin(angle - Math.PI/6));
+        ctx.lineTo(sx+dx - ah*Math.cos(angle + Math.PI/6), sy+dy - ah*Math.sin(angle + Math.PI/6));
+        ctx.closePath(); ctx.fillStyle='#ff9800'; ctx.fill();
+        // label
+        ctx.fillStyle='#ff9800'; ctx.font='12px system-ui'; ctx.fillText('z = costante', (x1+x2)/2 + 6, (y1+y2)/2 - 6);
+        ctx.restore();
+      }
+    }catch(e){ console.error('Hint overlay error:', e); }
   }
 
   function draw(){
@@ -376,29 +313,19 @@
   // ---- Texts ----
   function updateTexts(){
     const {Xmax,Ymax,c,slants} = world;
-    problemText.textContent =
-      `Massimizza z = ${c[0]}·x + ${c[1]}·y con x≥0, y≥0, x≤${Xmax}, y≤${Ymax}` +
-      (slants.length ? ` e ${slants.length} vincoli obliqui.` : `.`);
-
-    const cons = [
-      `x ≥ 0`, `y ≥ 0`, `x ≤ ${Xmax}`, `y ≤ ${Ymax}`,
-      ...slants.map((s)=>`${s.a}·x + ${s.b}·y ≤ ${s.d}`)
-    ].join('\\n');
-
+    problemText.textContent = `Massimizza z = ${c[0]}·x + ${c[1]}·y con x≥0, y≥0, x≤${Xmax}, y≤${Ymax}` + (slants.length?` e ${slants.length} vincoli obliqui.`:'.');
+    const cons = [`x ≥ 0`, `y ≥ 0`, `x ≤ ${Xmax}`, `y ≤ ${Ymax}`, ...slants.map(s=>`${s.a}·x + ${s.b}·y ≤ ${s.d}`)].join('\\n');
     constraintsText.textContent = cons;
-    xVal.value = player.x.toFixed(2);
-    yVal.value = player.y.toFixed(2);
+    xVal.value = player.x.toFixed(2); yVal.value = player.y.toFixed(2);
   }
 
   // ---- Interaction ----
   function setFromInputs(){
     let x = parseFloat(xVal.value), y = parseFloat(yVal.value);
     if(Number.isFinite(x) && Number.isFinite(y)){
-      if(boolMode.checked){ x = Math.round(x); y = Math.round(y); x=clamp(x,0,1); y=clamp(y,0,1); }
+      if(boolMode.checked){ x=Math.round(x); y=Math.round(y); x=clamp(x,0,1); y=clamp(y,0,1); }
       if(snapInt.checked){ x=Math.round(x); y=Math.round(y); }
-      player.x = clamp(x, 0, world.Xmax);
-      player.y = clamp(y, 0, world.Ymax);
-      draw();
+      player.x = clamp(x,0,world.Xmax); player.y = clamp(y,0,world.Ymax); draw();
     }
   }
   xVal.addEventListener('change', setFromInputs);
@@ -409,7 +336,7 @@
     const sx = e.clientX - rect.left;
     const sy = e.clientY - rect.top;
     let [x,y] = toWorld(sx,sy);
-    if(boolMode.checked){ x = Math.round(x); y = Math.round(y); x=clamp(x,0,1); y=clamp(y,0,1); }
+    if(boolMode.checked){ x=Math.round(x); y=Math.round(y); x=clamp(x,0,1); y=clamp(y,0,1); }
     if(snapInt.checked){ x=Math.round(x); y=Math.round(y); }
     player.x = clamp(x,0,world.Xmax);
     player.y = clamp(y,0,world.Ymax);
@@ -420,15 +347,8 @@
   canvas.addEventListener('mousedown', e=>{ dragging=true; onDragLike(e); });
   canvas.addEventListener('mousemove', e=>{ if(dragging) onDragLike(e); });
   window.addEventListener('mouseup', ()=> dragging=false);
-  canvas.addEventListener('touchstart', e=>{
-    dragging=true;
-    // handle pinch start
-    if(e.touches.length===2){ dragging=false; pinchStart(e); }
-  }, {passive:false});
-  canvas.addEventListener('touchmove', e=>{
-    if(e.touches.length===1 && dragging) onDragLike(e.touches[0]);
-    if(e.touches.length===2){ pinchMove(e); }
-  }, {passive:false});
+  canvas.addEventListener('touchstart', e=>{ dragging=true; if(e.touches.length===2){ dragging=false; pinchStart(e); } }, {passive:false});
+  canvas.addEventListener('touchmove', e=>{ if(e.touches.length===1 && dragging) onDragLike(e.touches[0]); if(e.touches.length===2){ pinchMove(e); } }, {passive:false});
   window.addEventListener('touchend', ()=> dragging=false);
 
   // ---- Pinch zoom & pan ----
@@ -462,7 +382,6 @@
     view.ymin = wy - ( (wy - pinchState.startView.ymin) / vyw ) * newVyw;
     view.ymax = view.ymin + newVyw;
 
-    // clamp to world
     const clampRange = (min, max, wmin, wmax) => {
       const w = max - min; 
       if(w > (wmax - wmin)){ return [wmin, wmax]; }
@@ -472,14 +391,14 @@
     };
     [view.xmin, view.xmax] = clampRange(view.xmin, view.xmax, 0, world.Xmax);
     [view.ymin, view.ymax] = clampRange(view.ymin, view.ymax, 0, world.Ymax);
-
     draw();
   }
 
+  // ---- Buttons ----
   newBtn.addEventListener('click', genProblem);
   levelSel.addEventListener('change', genProblem);
   hintBtn.addEventListener('click', ()=>{ hint = !hint; hintBtn.classList.toggle('primary', hint); status.textContent = hint ? 'Hint attivo' : 'Hint disattivato'; draw(); });
-centerBtn.addEventListener('click', ()=>{ xVal.value = player.x.toFixed(2); yVal.value = player.y.toFixed(2); draw(); });
+  centerBtn.addEventListener('click', ()=>{ xVal.value = player.x.toFixed(2); yVal.value = player.y.toFixed(2); draw(); });
   [snapInt, boolMode].forEach(el=> el.addEventListener('change', ()=>{ draw(); loadBest(); }));
 
   checkBtn.addEventListener('click', ()=>{
@@ -496,16 +415,14 @@ centerBtn.addEventListener('click', ()=>{ xVal.value = player.x.toFixed(2); yVal
     scoreBox.textContent = within
       ? `z=${myVal.toFixed(2)} | z*=${bestVal.toFixed(2)} → Punteggio: ${score}/100 ${bonus?`(+${bonus} bonus)`:''}`
       : `Punto non ammissibile.`;
-    drawGrid(); drawConstraints(); if(hint) drawHint(); drawPlayer(); drawOptimum(opt); drawSimplexStep();
-    status.textContent = within
-      ? (score>=100 ? 'Perfetto! Vertice ottimo.' : 'Ammissibile. Puoi migliorare.')
-      : 'Fuori dalla regione ammissibile.';
+    drawGrid(); drawConstraints(); drawSimplexStep(); drawPlayer(); if(hint) drawHintOverlay();
+    status.textContent = within ? (score>=100 ? 'Perfetto! Vertice ottimo.' : 'Ammissibile. Puoi migliorare.') : 'Fuori dalla regione ammissibile.';
     if(within) saveBest(score);
   });
 
   simplexBtn.addEventListener('click', ()=>{ buildSimplexPath(); simplexIndex=0; updateSimplexLabel(); draw(); });
-  sxPrev.addEventListener('click', ()=>{ if(simplexPath.length){ simplexIndex = Math.max(0, simplexIndex-1); updateSimplexLabel(); draw(); } });
-  sxNext.addEventListener('click', ()=>{ if(simplexPath.length){ simplexIndex = Math.min(simplexPath.length-1, simplexIndex+1); updateSimplexLabel(); draw(); } });
+  sxPrev?.addEventListener('click', ()=>{ if(simplexPath.length){ simplexIndex = Math.max(0, simplexIndex-1); updateSimplexLabel(); draw(); } });
+  sxNext?.addEventListener('click', ()=>{ if(simplexPath.length){ simplexIndex = Math.min(simplexPath.length-1, simplexIndex+1); updateSimplexLabel(); draw(); } });
 
   // ---- Tutorial ----
   helpBtn.addEventListener('click', ()=> tutorial.showModal());
@@ -513,71 +430,13 @@ centerBtn.addEventListener('click', ()=>{ xVal.value = player.x.toFixed(2); yVal
     if(dontShow.checked) localStorage.setItem('dantzig.tutorial.hidden','1');
     tutorial.close();
   });
-  function maybeShowTutorial(){
-    if(!localStorage.getItem('dantzig.tutorial.hidden')) tutorial.showModal();
-  }
+  function maybeShowTutorial(){ if(!localStorage.getItem('dantzig.tutorial.hidden')) tutorial.showModal(); }
 
   // ---- PWA ----
   if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js'); }
-  window.addEventListener('beforeinstallprompt', (e)=>{ e.preventDefault(); installDeferred = e; installLink.style.display='inline'; });
-  let installDeferred = null;
-  document.getElementById('installLink').addEventListener('click', (e)=>{ e.preventDefault(); if(installDeferred){ installDeferred.prompt(); } });
 
   // ---- Init ----
   genProblem();
   resizeCanvas();
   maybeShowTutorial();
 })();
-
-// ---- Hint overlay ----
-
-// ---- Hint overlay (drawn last) ----
-function drawHintOverlay(){
-  try{
-    const [c1,c2]=world.c;
-    // level set through player's current z
-    const k = c1*player.x + c2*player.y;
-    const xmin=view.xmin, xmax=view.xmax, ymin=view.ymin, ymax=view.ymax;
-    const pts = [];
-    if (Math.abs(c2)>1e-9){
-      const yL=(k-c1*xmin)/c2; if(yL>=ymin && yL<=ymax) pts.push([xmin,yL]);
-      const yR=(k-c1*xmax)/c2; if(yR>=ymin && yR<=ymax) pts.push([xmax,yR]);
-    }
-    if (Math.abs(c1)>1e-9){
-      const xB=(k-c2*ymin)/c1; if(xB>=xmin && xB<=xmax) pts.push([xB,ymin]);
-      const xT=(k-c2*ymax)/c1; if(xT>=xmin && xT<=xmax) pts.push([xT,ymax]);
-    }
-    // deduplicate
-    const uniq=[];
-    for(const p of pts){ if(!uniq.some(q=>Math.hypot(q[0]-p[0], q[1]-p[1])<1e-6)) uniq.push(p); }
-    if(uniq.length>=2){
-      const [a,b]=uniq.slice(0,2);
-      const [x1,y1]=toScreen(a[0],a[1]);
-      const [x2,y2]=toScreen(b[0],b[1]);
-      const oldStroke = ctx.strokeStyle, oldWidth = ctx.lineWidth, oldDash = ctx.getLineDash();
-      ctx.save();
-      ctx.strokeStyle = '#ff9800';
-      ctx.lineWidth = 2.5;
-      ctx.setLineDash([6,6]);
-      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
-      ctx.setLineDash(oldDash);
-      // Arrow showing ascent (gradient)
-      const [sx,sy]=toScreen(player.x, player.y);
-      const norm = Math.hypot(c1,c2) || 1;
-      const dx = (c1/norm)*28, dy = -(c2/norm)*28;
-      ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(sx+dx, sy+dy); ctx.stroke();
-      const angle = Math.atan2(dy, dx);
-      const ah = 8;
-      ctx.beginPath();
-      ctx.moveTo(sx+dx, sy+dy);
-      ctx.lineTo(sx+dx - ah*Math.cos(angle - Math.PI/6), sy+dy - ah*Math.sin(angle - Math.PI/6));
-      ctx.lineTo(sx+dx - ah*Math.cos(angle + Math.PI/6), sy+dy - ah*Math.sin(angle + Math.PI/6));
-      ctx.closePath(); ctx.fillStyle = '#ff9800'; ctx.fill();
-      ctx.restore();
-    }
-  }catch(err){
-    console.error('Hint overlay error', err);
-  }
-}
-

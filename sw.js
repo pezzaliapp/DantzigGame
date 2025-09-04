@@ -1,5 +1,5 @@
-// Offline cache (clean build)
-const CACHE = 'dantziggame-v16';
+// Offline cache
+const CACHE = 'dantziggame-v17';
 const ASSETS = [
   './',
   './index.html',
@@ -16,7 +16,5 @@ self.addEventListener('activate', e=>{
   e.waitUntil(caches.keys().then(keys=>Promise.all(keys.map(k=>k!==CACHE && caches.delete(k)))));
 });
 self.addEventListener('fetch', e=>{
-  e.respondWith(
-    caches.match(e.request).then(res=> res || fetch(e.request))
-  );
+  e.respondWith(caches.match(e.request).then(res=> res || fetch(e.request)));
 });
