@@ -1,5 +1,5 @@
 // Offline cache
-const CACHE = 'dantziggame-v22';
+const CACHE = 'dantziggame-v23';
 const ASSETS = [
   './',
   './index.html',
@@ -7,7 +7,8 @@ const ASSETS = [
   './app.js',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './README.md'
 ];
 self.addEventListener('install', e=>{
   e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)));

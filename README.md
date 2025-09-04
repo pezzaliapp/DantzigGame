@@ -14,7 +14,7 @@ Gioco/puzzle ispirato a **George Dantzig**. Obiettivo: massimizzare
 ## 🏆 Punteggio
 - 0–100 in base al rapporto `z/z*`.
 - **+10** extra in modalità **intera** (Snap interi) o **booleana** (0/1) se il punto è ammissibile.
-- Il best viene salvato in `localStorage` per livello e opzioni.
+  In modalità booleana il puntino salta ai 4 angoli (0/0, 1/0, 0/1, 1/1) in base a dove clicchi/trascini.
 
 ## 📚 Livelli
 - **Facile** (2 vincoli obliqui)

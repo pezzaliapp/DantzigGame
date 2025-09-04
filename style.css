@@ -29,7 +29,7 @@ main{flex:1; display:grid; grid-template-columns:1fr 380px; gap:16px; padding:16
 .card{background:#12141a; border:1px solid #24262d; border-radius:10px; padding:12px}
 .controls{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
 input[type=number]{background:#0b0c10; border:1px solid #333; color:var(--fg); padding:6px 8px; border-radius:6px; width:110px}
-select{background:#0b0c10; color:var(--fg); border:1px solid #333; border-radius:6px; padding:6px 8px}
+select{background:#0b0c10; color:#e9e9ef; border:1px solid #333; border-radius:6px; padding:6px 8px}
 a{color:var(--primary)}
 .muted{color:var(--muted)}
 dialog{border:none; border-radius:10px; padding:16px; background:#151720; color:var(--fg); width:min(700px, 92vw)}

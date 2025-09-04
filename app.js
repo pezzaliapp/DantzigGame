@@ -1,4 +1,4 @@
-/* Dantzig Game — stable baseline with robust Hint + Simplex toggle */
+/* Dantzig Game — clean build with robust Hint + Boolean UX + Simplex toggle + extra levels */
 (function(){
   'use strict';
   // ---- DOM ----
@@ -105,7 +105,7 @@
   function feasible(p, quantize=false){
     const {Xmax,Ymax,slants} = world;
     let [x,y]=p;
-    if(quantize && boolMode.checked){ x = Math.round(x); y = Math.round(y); x = clamp(x,0,1); y = clamp(y,0,1); }
+    if(quantize && boolMode.checked){ x = x<=0 ? 0 : 1; y = y<=0 ? 0 : 1; }
     if(x<0 || y<0 || x> Xmax || y> Ymax) return false;
     for(const s of slants){ if(s.a*x + s.b*y - s.d > 1e-9) return false; }
     return true;
@@ -255,7 +255,6 @@
 
   function drawPlayer(){
     let px = player.x, py = player.y;
-    if(boolMode.checked){ px = Math.round(px); py = Math.round(py); }
     const [sx,sy]=toScreen(px,py);
     ctx.fillStyle = '#fdd663';
     ctx.beginPath(); ctx.arc(sx,sy,5,0,Math.PI*2); ctx.fill();
@@ -326,8 +325,8 @@
   function setFromInputs(){
     let x = parseFloat(xVal.value), y = parseFloat(yVal.value);
     if(Number.isFinite(x) && Number.isFinite(y)){
-      if(boolMode.checked){ x=Math.round(x); y=Math.round(y); x=clamp(x,0,1); y=clamp(y,0,1); }
-      if(snapInt.checked){ x=Math.round(x); y=Math.round(y); }
+      if(boolMode.checked){ x = x<=0 ? 0 : 1; y = y<=0 ? 0 : 1; }
+      else if(snapInt.checked){ x=Math.round(x); y=Math.round(y); }
       player.x = clamp(x,0,world.Xmax); player.y = clamp(y,0,world.Ymax); draw();
     }
   }
@@ -339,8 +338,12 @@
     const sx = e.clientX - rect.left;
     const sy = e.clientY - rect.top;
     let [x,y] = toWorld(sx,sy);
-    if(boolMode.checked){ x=Math.round(x); y=Math.round(y); x=clamp(x,0,1); y=clamp(y,0,1); }
-    if(snapInt.checked){ x=Math.round(x); y=Math.round(y); }
+    if(boolMode.checked){
+      x = (x < 0.5) ? 0 : 1;
+      y = (y < 0.5) ? 0 : 1;
+    } else if(snapInt.checked){
+      x = Math.round(x); y = Math.round(y);
+    }
     player.x = clamp(x,0,world.Xmax);
     player.y = clamp(y,0,world.Ymax);
     xVal.value = player.x.toFixed(2);
@@ -414,9 +417,8 @@
     }
     updateSimplexUI(); draw();
   });
-  const installLink = document.getElementById('installLink');
   centerBtn.addEventListener('click', ()=>{ xVal.value = player.x.toFixed(2); yVal.value = player.y.toFixed(2); draw(); });
-  [snapInt, boolMode].forEach(el=> el.addEventListener('change', ()=>{ draw(); loadBest(); }));
+  [snapInt, boolMode].forEach(el=> el.addEventListener('change', ()=>{ if(el===boolMode && boolMode.checked){ player.x = player.x<0.5?0:1; player.y = player.y<0.5?0:1; } draw(); loadBest(); }));
 
   checkBtn.addEventListener('click', ()=>{
     const opt = computeOptimum();
