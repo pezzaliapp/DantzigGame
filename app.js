@@ -256,46 +256,58 @@
 
   function drawObjective(lineThroughPoint=null){
     const [c1,c2]=world.c;
-    // Level set: c1*x + c2*y = k
+    // k from point or default
     let k = lineThroughPoint ? objectiveValue(lineThroughPoint[0], lineThroughPoint[1])
-                             : objectiveValue(world.Xmax*0.6, world.Ymax*0.6);
-    const {Xmax,Ymax} = world;
+                             : objectiveValue((view.xmin+view.xmax)/2, (view.ymin+view.ymax)/2);
+
+    // Intersections with the *viewbox* rectangle
     const cand = [];
-    // Intersections with rectangle borders
-    // x = 0 => y = k/c2
-    if (Math.abs(c2) > 1e-9) {
-      const y0 = k / c2;
-      if (y0 >= 0 && y0 <= Ymax) cand.push([0, y0]);
+    const xmin=view.xmin, xmax=view.xmax, ymin=view.ymin, ymax=view.ymax;
+    // x=xmin => y = (k - c1*xmin)/c2
+    if (Math.abs(c2) > 1e-9){
+      const yL = (k - c1*xmin)/c2; if (yL>=ymin && yL<=ymax) cand.push([xmin,yL]);
+      const yR = (k - c1*xmax)/c2; if (yR>=ymin && yR<=ymax) cand.push([xmax,yR]);
     }
-    // x = Xmax => y = (k - c1*Xmax)/c2
-    if (Math.abs(c2) > 1e-9) {
-      const yR = (k - c1*Xmax) / c2;
-      if (yR >= 0 && yR <= Ymax) cand.push([Xmax, yR]);
+    // y=ymin/ymax => x = (k - c2*y)/c1
+    if (Math.abs(c1) > 1e-9){
+      const xB = (k - c2*ymin)/c1; if (xB>=xmin && xB<=xmax) cand.push([xB,ymin]);
+      const xT = (k - c2*ymax)/c1; if (xT>=xmin && xT<=xmax) cand.push([xT,ymax]);
     }
-    // y = 0 => x = k/c1
-    if (Math.abs(c1) > 1e-9) {
-      const x0 = k / c1;
-      if (x0 >= 0 && x0 <= Xmax) cand.push([x0, 0]);
-    }
-    // y = Ymax => x = (k - c2*Ymax)/c1
-    if (Math.abs(c1) > 1e-9) {
-      const xT = (k - c2*Ymax) / c1;
-      if (xT >= 0 && xT <= Xmax) cand.push([xT, Ymax]);
-    }
-    // Deduplicate close points
-    const uniq = [];
-    for (const p of cand){
-      if (!uniq.some(q=>Math.hypot(q[0]-p[0], q[1]-p[1])<1e-6)) uniq.push(p);
-    }
-    if (uniq.length >= 2){
-      const [p1,p2] = uniq.slice(0,2);
+
+    // Dedup + require 2 points
+    const uniq=[];
+    for(const p of cand){ if(!uniq.some(q=>Math.hypot(q[0]-p[0], q[1]-p[1])<1e-6)) uniq.push(p); }
+    if (uniq.length>=2){
+      const [p1,p2]=uniq.slice(0,2);
       const [x1,y1]=toScreen(p1[0],p1[1]);
       const [x2,y2]=toScreen(p2[0],p2[1]);
       ctx.strokeStyle = '#f4511e';
-      ctx.lineWidth = 1.25;
+      ctx.lineWidth = 1.5;
       ctx.setLineDash([6,6]);
       ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
       ctx.setLineDash([]);
+    }
+
+    // Draw a small arrow at player showing ascent direction (gradient [c1,c2])
+    if (lineThroughPoint){
+      const [sx,sy]=toScreen(lineThroughPoint[0], lineThroughPoint[1]);
+      const len = 28; // pixels
+      const norm = Math.hypot(c1,c2) || 1;
+      const dx = (c1/norm)*len, dy = -(c2/norm)*len; // minus because y is inverted on screen
+      // main line
+      ctx.strokeStyle = '#f4511e';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(sx+dx, sy+dy); ctx.stroke();
+      // arrow head
+      const angle = Math.atan2(dy, dx);
+      const ah = 8;
+      ctx.beginPath();
+      ctx.moveTo(sx+dx, sy+dy);
+      ctx.lineTo(sx+dx - ah*Math.cos(angle - Math.PI/6), sy+dy - ah*Math.sin(angle - Math.PI/6));
+      ctx.lineTo(sx+dx - ah*Math.cos(angle + Math.PI/6), sy+dy - ah*Math.sin(angle + Math.PI/6));
+      ctx.closePath();
+      ctx.fillStyle = '#f4511e';
+      ctx.fill();
     }
   }
 
@@ -319,7 +331,18 @@
   function drawSimplexStep(){
     if(simplexPath.length===0) return;
     const p = simplexPath[simplexIndex];
+    // draw objective through current simplex vertex
     drawObjective(p);
+    // draw polyline for visited vertices
+    ctx.strokeStyle = '#81c784';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for(let i=0;i<=simplexIndex;i++){
+      const [sx,sy]=toScreen(simplexPath[i][0], simplexPath[i][1]);
+      if(i===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
+    }
+    ctx.stroke();
+    // draw points
     ctx.fillStyle = '#81c784';
     for(let i=0;i<=simplexIndex;i++){
       const [sx,sy]=toScreen(simplexPath[i][0], simplexPath[i][1]);
@@ -465,7 +488,7 @@
     if(within) saveBest(score);
   });
 
-  simplexBtn.addEventListener('click', ()=>{ buildSimplexPath(); draw(); });
+  simplexBtn.addEventListener('click', ()=>{ buildSimplexPath(); simplexIndex=0; updateSimplexLabel(); draw(); });
   sxPrev.addEventListener('click', ()=>{ if(simplexPath.length){ simplexIndex = Math.max(0, simplexIndex-1); updateSimplexLabel(); draw(); } });
   sxNext.addEventListener('click', ()=>{ if(simplexPath.length){ simplexIndex = Math.min(simplexPath.length-1, simplexIndex+1); updateSimplexLabel(); draw(); } });
 
