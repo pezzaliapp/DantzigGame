@@ -281,11 +281,13 @@
       const [p1,p2]=uniq.slice(0,2);
       const [x1,y1]=toScreen(p1[0],p1[1]);
       const [x2,y2]=toScreen(p2[0],p2[1]);
-      ctx.strokeStyle = '#f4511e';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = '#ff9800';
+      ctx.lineWidth = 2.5;
       ctx.setLineDash([6,6]);
       ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
       ctx.setLineDash([]);
+      /* HINT LABEL */
+      const mx=(x1+x2)/2, my=(y1+y2)/2; ctx.fillStyle='#ff9800'; ctx.font='12px system-ui'; ctx.fillText('z = costante', mx+6, my-6);
     }
 
     // Draw a small arrow at player showing ascent direction (gradient [c1,c2])
@@ -297,7 +299,7 @@
       // main line
       ctx.strokeStyle = '#f4511e';
       ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(sx+dx, sy+dy); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(sx+dx, sy+dy); ctx.stroke(); ctx.fillStyle='#ff9800'; ctx.font='12px system-ui'; ctx.fillText('più z →', sx+dx+6, sy+dy-6);
       // arrow head
       const angle = Math.atan2(dy, dx);
       const ah = 8;
@@ -334,14 +336,27 @@
     // draw objective through current simplex vertex
     drawObjective(p);
     // draw polyline for visited vertices
-    ctx.strokeStyle = '#81c784';
-    ctx.lineWidth = 2;
+    ctx.strokeStyle = '#00e676';
+    ctx.lineWidth = 3;
     ctx.beginPath();
     for(let i=0;i<=simplexIndex;i++){
       const [sx,sy]=toScreen(simplexPath[i][0], simplexPath[i][1]);
       if(i===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
     }
     ctx.stroke();
+    /* SIMPLEX ARROWHEAD */
+    if(simplexIndex>0){
+      const [sxA,syA]=toScreen(simplexPath[simplexIndex-1][0], simplexPath[simplexIndex-1][1]);
+      const [sxB,syB]=toScreen(simplexPath[simplexIndex][0], simplexPath[simplexIndex][1]);
+      const angle = Math.atan2(syB - syA, sxB - sxA);
+      const ah = 9;
+      ctx.fillStyle = '#00e676';
+      ctx.beginPath();
+      ctx.moveTo(sxB, syB);
+      ctx.lineTo(sxB - ah*Math.cos(angle - Math.PI/6), syB - ah*Math.sin(angle - Math.PI/6));
+      ctx.lineTo(sxB - ah*Math.cos(angle + Math.PI/6), syB - ah*Math.sin(angle + Math.PI/6));
+      ctx.closePath(); ctx.fill();
+    }
     // draw points
     ctx.fillStyle = '#81c784';
     for(let i=0;i<=simplexIndex;i++){
