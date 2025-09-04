@@ -368,7 +368,7 @@
   function draw(){
     drawGrid();
     drawConstraints();
-    if(hint) drawObjective(player);
+    if(hint) drawHint();
     drawPlayer();
     drawSimplexStep();
   }
@@ -478,7 +478,7 @@
 
   newBtn.addEventListener('click', genProblem);
   levelSel.addEventListener('change', genProblem);
-  hintBtn.addEventListener('click', ()=>{ hint = !hint; hintBtn.classList.toggle('primary', hint); draw(); });
+  hintBtn.addEventListener('click', ()=>{ hint = !hint; hintBtn.classList.toggle('primary', hint); status.textContent = hint ? 'Hint attivo' : 'Hint disattivato'; draw(); });
   centerBtn.addEventListener('click', ()=>{ xVal.value = player.x.toFixed(2); yVal.value = player.y.toFixed(2); draw(); });
   [snapInt, boolMode].forEach(el=> el.addEventListener('change', ()=>{ draw(); loadBest(); }));
 
@@ -496,7 +496,7 @@
     scoreBox.textContent = within
       ? `z=${myVal.toFixed(2)} | z*=${bestVal.toFixed(2)} → Punteggio: ${score}/100 ${bonus?`(+${bonus} bonus)`:''}`
       : `Punto non ammissibile.`;
-    drawGrid(); drawConstraints(); if(hint) drawObjective(player); drawPlayer(); drawOptimum(opt); drawSimplexStep();
+    drawGrid(); drawConstraints(); if(hint) drawHint(); drawPlayer(); drawOptimum(opt); drawSimplexStep();
     status.textContent = within
       ? (score>=100 ? 'Perfetto! Vertice ottimo.' : 'Ammissibile. Puoi migliorare.')
       : 'Fuori dalla regione ammissibile.';
@@ -528,3 +528,16 @@
   resizeCanvas();
   maybeShowTutorial();
 })();
+
+// ---- Hint overlay ----
+function drawHint(){
+  // draw level set through player + gradient arrow + labels
+  drawObjective([player.x, player.y]);
+  // status watermark
+  ctx.save();
+  ctx.globalAlpha = 0.6;
+  ctx.fillStyle = '#ff9800';
+  ctx.font = 'bold 12px system-ui';
+  ctx.fillText('HINT attivo', PAD+8, PAD+16);
+  ctx.restore();
+}
