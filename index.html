@@ -19,15 +19,6 @@
     <label class="toggle">Snap interi <input type="checkbox" id="snapInt"></label>
     <label class="toggle">Boolean {0,1} <input type="checkbox" id="boolMode"></label>
     <label class="toggle">Adatta in altezza <input type="checkbox" id="fitHeight"></label>
-    <label>Modalità
-      <select id="modeSel">
-        <option value="classic">Classica</option>
-        <option value="time">Tempo ⏱️</option>
-        <option value="hidden">Vincoli nascosti 🔒</option>
-      </select>
-    </label>
-    <span id="timer" class="muted" style="min-width:70px;display:none;">60s</span>
-    <button id="probeBtn" style="display:none;">Sonda</button>
     <label>Livello
       <select id="levelSel">
         <option value="easy">Facile</option>
@@ -104,21 +95,13 @@
   <dialog id="tutorial">
     <h2>Come si gioca a Dantzig Game</h2>
     <h3>🎯 Scopo</h3>
-    <p>C’è un tesoro chiamato <strong>z = c₁·x + c₂·y</strong>. Più vai nella direzione giusta, più z cresce.
-    Ma ci sono dei <strong>muri invisibili</strong> (vincoli) che ti fanno muovere solo nella <strong>zona blu</strong>.</p>
+    <p>Massimizza <strong>z = c₁·x + c₂·y</strong> muovendo il puntino giallo nella <strong>zona blu</strong>, rispettando i vincoli.</p>
     <h3>🕹️ Come si gioca</h3>
     <ol>
       <li>Premi <strong>Nuovo</strong> per creare una mappa.</li>
-      <li>Guarda la <strong>zona blu</strong>: è dove puoi muoverti.</li>
       <li>Trascina il <strong>puntino giallo</strong> dentro la zona blu.</li>
-      <li>Premi <strong>Verifica</strong> per sapere quanto vali.</li>
+      <li>Premi <strong>Verifica</strong> per confrontare il tuo valore con l’ottimo.</li>
     </ol>
-    <h3>🏆 Punteggio</h3>
-    <ul>
-      <li><strong>0–100</strong> punti in base a quanto il tuo z è vicino a z*.</li>
-      <li><strong>100</strong> = punto ottimo.</li>
-      <li><strong>+10</strong> extra con Snap interi o Boolean {0,1} se ammissibile.</li>
-    </ul>
     <h3>📚 Aiuti</h3>
     <ul>
       <li><strong>Hint</strong> → retta z = costante + freccia “più z →”.</li>

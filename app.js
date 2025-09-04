@@ -1,4 +1,4 @@
-/* Dantzig Game — clean build with robust Hint */
+/* Dantzig Game — stable baseline with robust Hint + Simplex toggle */
 (function(){
   'use strict';
   // ---- DOM ----
@@ -18,9 +18,6 @@
   const scoreBox = document.getElementById('scoreBox');
   const status = document.getElementById('status');
   const levelSel = document.getElementById('levelSel');
-  const modeSel = document.getElementById('modeSel');
-  const timerEl = document.getElementById('timer');
-  const probeBtn = document.getElementById('probeBtn');
   const bestScoreEl = document.getElementById('bestScore');
   const simplexBtn = document.getElementById('simplexBtn');
   const sxPrev = document.getElementById('sxPrev');
@@ -30,7 +27,6 @@
   const tutorial = document.getElementById('tutorial');
   const dontShow = document.getElementById('dontShow');
   const closeTutorial = document.getElementById('closeTutorial');
-  const installLink = document.getElementById('installLink');
 
   // --- Responsive canvas (DPR aware) ---
   const wrap = document.getElementById('plotWrap');
@@ -65,9 +61,6 @@
   let dragging = false;
   let hint = false;
   let simplexPath = []; let simplexIndex = 0; let simplexActive = false;
-  let gameMode = 'classic';
-  let secsLeft = 60; let timerId = null;
-  let hidden = { visible: [], probes: 0 };
 
   // ---- Utils ----
   const irnd = (a,b)=>Math.floor(Math.random()*(b-a+1))+a;
@@ -104,12 +97,9 @@
     world = { Xmax, Ymax, c:[c1,c2], slants, level };
     view  = { xmin:0, xmax:Xmax, ymin:0, ymax:Ymax };
     player.x = Math.min(2, Xmax/2); player.y = Math.min(2, Ymax/2);
-    hint = false; updateTexts(); status.textContent = 'Nuovo problema.'; scoreBox.textContent='—';
-    simplexPath=[]; simplexIndex=0; simplexActive=false; loadBest(); draw(); resizeCanvas();
+    hint = false; simplexActive = false; simplexPath=[]; simplexIndex=0;
+    updateTexts(); status.textContent = 'Nuovo problema.'; scoreBox.textContent='—'; loadBest(); resizeCanvas(); draw();
     updateSimplexUI();
-    // Mode-specific init
-    if(gameMode==='time'){ startTimer(); }
-    if(gameMode==='hidden'){ hidden = { visible: [], probes: 0 }; }
   }
 
   function feasible(p, quantize=false){
@@ -186,7 +176,9 @@
     if(Math.hypot(path[path.length-1][0]-goal[0], path[path.length-1][1])>1e-6) path.push(goal);
     simplexPath = path; simplexIndex=0; updateSimplexLabel();
   }
+
   function updateSimplexLabel(){ sxStep.textContent = simplexPath.length? `Step ${simplexIndex+1}/${simplexPath.length}`:'—'; }
+  function updateSimplexUI(){ if(simplexBtn){ simplexBtn.classList.toggle('primary', simplexActive && simplexPath.length>0); } updateSimplexLabel(); }
 
   // ---- Drawing ----
   function drawGrid(){
@@ -209,8 +201,7 @@
 
   function drawConstraints(){
     const {Xmax,Ymax,slants} = world;
-    const linesToDraw = (gameMode==='hidden') ? hidden.visible : slants;
-    for(const s of linesToDraw){
+    for(const s of slants){
       const pts = [];
       if(s.b!==0){ const y=s.d/s.b; if(y>=0 && y<=Ymax) pts.push([0,y]); }
       if(s.a!==0){ const x=s.d/s.a; if(x>=0 && x<=Xmax) pts.push([x,0]); }
@@ -225,15 +216,13 @@
         ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
       }
     }
-    // Region shading (skip in hidden mode per non spoilerare)
-    if(gameMode!=='hidden'){
-      ctx.fillStyle = 'rgba(30,136,229,0.15)';
-      const step = 2;
-      for(let sx=PAD; sx<=W-PAD; sx+=step){
-        for(let sy=PAD; sy<=H-PAD; sy+=step){
-          const [x,y]=toWorld(sx,sy);
-          if(feasible([x,y], false)) ctx.fillRect(sx,sy,step,step);
-        }
+    // Region shading
+    ctx.fillStyle = 'rgba(30,136,229,0.15)';
+    const step = 2;
+    for(let sx=PAD; sx<=W-PAD; sx+=step){
+      for(let sy=PAD; sy<=H-PAD; sy+=step){
+        const [x,y]=toWorld(sx,sy);
+        if(feasible([x,y], false)) ctx.fillRect(sx,sy,step,step);
       }
     }
   }
@@ -361,72 +350,71 @@
   canvas.addEventListener('mousedown', e=>{ dragging=true; onDragLike(e); });
   canvas.addEventListener('mousemove', e=>{ if(dragging) onDragLike(e); });
   window.addEventListener('mouseup', ()=> dragging=false);
-  canvas.addEventListener('touchstart', e=>{ dragging=true; if(e.touches.length===2){ dragging=false; pinchStart(e); } }, {passive:false});
-  canvas.addEventListener('touchmove', e=>{ if(e.touches.length===1 && dragging) onDragLike(e.touches[0]); if(e.touches.length===2){ pinchMove(e); } }, {passive:false});
+  canvas.addEventListener('touchstart', e=>{ dragging=true; }, {passive:false});
+  canvas.addEventListener('touchmove', e=>{ if(e.touches.length===1 && dragging) onDragLike(e.touches[0]); }, {passive:false});
   window.addEventListener('touchend', ()=> dragging=false);
 
-  // ---- Pinch zoom & pan ----
+  // ---- Pinch zoom & pan (two-finger) ----
   let pinchState = { active:false, startDist:0, startCenter:null, startView:null };
   function distance(a,b){ const dx=a.clientX-b.clientX, dy=a.clientY-b.clientY; return Math.hypot(dx,dy); }
   function midpoint(a,b){ return { x:(a.clientX+b.clientX)/2, y:(a.clientY+b.clientY)/2 }; }
-  function pinchStart(e){
-    if(e.touches.length!==2) return;
-    pinchState.active = true;
-    pinchState.startDist = distance(e.touches[0], e.touches[1]);
-    pinchState.startCenter = midpoint(e.touches[0], e.touches[1]);
-    pinchState.startView = {...view};
-  }
-  function pinchMove(e){
-    if(!pinchState.active || e.touches.length!==2) return;
-    e.preventDefault();
-    const curDist = distance(e.touches[0], e.touches[1]);
-    const scale = curDist / (pinchState.startDist || 1);
-    const rect = canvas.getBoundingClientRect();
-    const cx = pinchState.startCenter.x - rect.left;
-    const cy = pinchState.startCenter.y - rect.top;
-    const [wx,wy] = toWorld(cx, cy);
+  canvas.addEventListener('touchstart', e=>{
+    if(e.touches.length===2){
+      pinchState.active = true;
+      pinchState.startDist = distance(e.touches[0], e.touches[1]);
+      pinchState.startCenter = midpoint(e.touches[0], e.touches[1]);
+      pinchState.startView = {...view};
+    }
+  }, {passive:false});
+  canvas.addEventListener('touchmove', e=>{
+    if(pinchState.active && e.touches.length===2){
+      e.preventDefault();
+      const curDist = distance(e.touches[0], e.touches[1]);
+      const scale = curDist / (pinchState.startDist || 1);
+      const rect = canvas.getBoundingClientRect();
+      const cx = pinchState.startCenter.x - rect.left;
+      const cy = pinchState.startCenter.y - rect.top;
+      const [wx,wy] = toWorld(cx, cy);
 
-    const vxw = (pinchState.startView.xmax - pinchState.startView.xmin);
-    const vyw = (pinchState.startView.ymax - pinchState.startView.ymin);
-    const newVxw = vxw / scale;
-    const newVyw = vyw / scale;
+      const vxw = (pinchState.startView.xmax - pinchState.startView.xmin);
+      const vyw = (pinchState.startView.ymax - pinchState.startView.ymin);
+      const newVxw = vxw / scale;
+      const newVyw = vyw / scale;
 
-    view.xmin = wx - ( (wx - pinchState.startView.xmin) / vxw ) * newVxw;
-    view.xmax = view.xmin + newVxw;
-    view.ymin = wy - ( (wy - pinchState.startView.ymin) / vyw ) * newVyw;
-    view.ymax = view.ymin + newVyw;
+      view.xmin = wx - ( (wx - pinchState.startView.xmin) / vxw ) * newVxw;
+      view.xmax = view.xmin + newVxw;
+      view.ymin = wy - ( (wy - pinchState.startView.ymin) / vyw ) * newVyw;
+      view.ymax = view.ymin + newVyw;
 
-    const clampRange = (min, max, wmin, wmax) => {
-      const w = max - min; 
-      if(w > (wmax - wmin)){ return [wmin, wmax]; }
-      if(min < wmin){ return [wmin, wmin + w]; }
-      if(max > wmax){ return [wmax - w, wmax]; }
-      return [min, max];
-    };
-    [view.xmin, view.xmax] = clampRange(view.xmin, view.xmax, 0, world.Xmax);
-    [view.ymin, view.ymax] = clampRange(view.ymin, view.ymax, 0, world.Ymax);
-    draw();
-  }
+      const clampRange = (min, max, wmin, wmax) => {
+        const w = max - min; 
+        if(w > (wmax - wmin)){ return [wmin, wmax]; }
+        if(min < wmin){ return [wmin, wmin + w]; }
+        if(max > wmax){ return [wmax - w, wmax]; }
+        return [min, max];
+      };
+      [view.xmin, view.xmax] = clampRange(view.xmin, view.xmax, 0, world.Xmax);
+      [view.ymin, view.ymax] = clampRange(view.ymin, view.ymax, 0, world.Ymax);
+      draw();
+    }
+  }, {passive:false});
+  window.addEventListener('touchend', ()=> pinchState.active=false);
 
   // ---- Buttons ----
   newBtn.addEventListener('click', genProblem);
   levelSel.addEventListener('change', genProblem);
   hintBtn.addEventListener('click', ()=>{ hint = !hint; hintBtn.classList.toggle('primary', hint); status.textContent = hint ? 'Hint attivo' : 'Hint disattivato'; draw(); });
-  /* HEADER SIMPLEX LISTENER */
   simplexBtn.addEventListener('click', ()=>{
     if(!simplexActive){
       buildSimplexPath();
       simplexIndex = 0;
       simplexActive = simplexPath.length>0;
-    } else {
-      // turn off visualization
-      simplexActive = false;
-      simplexPath = [];
-      simplexIndex = 0;
+    }else{
+      simplexActive = false; simplexPath = []; simplexIndex = 0;
     }
-    updateSimplexUI();
-    draw();
+    updateSimplexUI(); draw();
   });
+  const installLink = document.getElementById('installLink');
   centerBtn.addEventListener('click', ()=>{ xVal.value = player.x.toFixed(2); yVal.value = player.y.toFixed(2); draw(); });
   [snapInt, boolMode].forEach(el=> el.addEventListener('change', ()=>{ draw(); loadBest(); }));
 
@@ -439,27 +427,23 @@
     const ratio = Math.max(0, Math.min(1, myVal / (bestVal || 1)));
     let score = Math.round(ratio * 100);
     let bonus = 0;
-    if(within && (snapInt.checked || boolMode.checked)) bonus += 10;
-    if(gameMode==='time'){ bonus += Math.round((secsLeft/60)*30); } // fino a +30
-    if(gameMode==='hidden'){ bonus += Math.max(0, 15 - hidden.probes*5); } // premia meno sonde
+    if(within && (snapInt.checked || boolMode.checked)) bonus = 10;
     score = Math.min(100, score + bonus);
     scoreBox.textContent = within
       ? `z=${myVal.toFixed(2)} | z*=${bestVal.toFixed(2)} → Punteggio: ${score}/100 ${bonus?`(+${bonus} bonus)`:''}`
       : `Punto non ammissibile.`;
-    drawGrid(); drawConstraints(); drawSimplexStep(); drawPlayer(); if(hint) drawHintOverlay();
+    drawGrid(); drawConstraints(); if(simplexActive) drawSimplexStep(); drawPlayer(); if(hint) drawHintOverlay();
     status.textContent = within ? (score>=100 ? 'Perfetto! Vertice ottimo.' : 'Ammissibile. Puoi migliorare.') : 'Fuori dalla regione ammissibile.';
     if(within) saveBest(score);
-    if(gameMode==='time') stopTimer();
   });
 
-  
   sxPrev?.addEventListener('click', ()=>{ if(simplexPath.length){ simplexActive=true; simplexIndex = Math.max(0, simplexIndex-1); updateSimplexUI(); draw(); } });
   sxNext?.addEventListener('click', ()=>{ if(simplexPath.length){ simplexActive=true; simplexIndex = Math.min(simplexPath.length-1, simplexIndex+1); updateSimplexUI(); draw(); } });
 
   // ---- Tutorial ----
   helpBtn.addEventListener('click', ()=> tutorial.showModal());
   closeTutorial.addEventListener('click', ()=>{
-    if(dontShow.checked) localStorage.setItem('dantzig.tutorial.hidden','1');
+    if(document.getElementById('dontShow').checked) localStorage.setItem('dantzig.tutorial.hidden','1');
     tutorial.close();
   });
   function maybeShowTutorial(){ if(!localStorage.getItem('dantzig.tutorial.hidden')) tutorial.showModal(); }
@@ -472,68 +456,3 @@
   resizeCanvas();
   maybeShowTutorial();
 })();
-
-  function startTimer(){
-    stopTimer();
-    secsLeft = 60;
-    timerEl.style.display = (gameMode==='time') ? 'inline' : 'none';
-    if(gameMode!=='time') return;
-    timerEl.textContent = secsLeft + 's';
-    timerId = setInterval(()=>{
-      secsLeft = Math.max(0, secsLeft-1);
-      timerEl.textContent = secsLeft + 's';
-      if(secsLeft===0){ stopTimer(); status.textContent='Tempo scaduto! Verifica per punteggio finale.'; }
-    }, 1000);
-  }
-  function stopTimer(){ if(timerId){ clearInterval(timerId); timerId=null; } }
-
-  // ---- Hidden constraints: probe ----
-  probeBtn.addEventListener('click', ()=>{
-    if(gameMode!=='hidden'){ return; }
-    // find violated hidden constraints
-    const violated = world.slants.filter(s=> !hidden.visible.includes(s) && (s.a*player.x + s.b*player.y > s.d + 1e-9));
-    if(violated.length){
-      hidden.visible.push(violated[0]); // reveal one
-      hidden.probes += 1;
-      status.textContent = 'Hai rivelato un vincolo nascosto.';
-    }else{
-      status.textContent = 'Nessun nuovo vincolo: prova a spostare il punto.';
-    }
-    draw();
-  });
-
-  // ---- Mode switching ----
-  function applyModeUI(){
-    timerEl.style.display = (gameMode==='time') ? 'inline' : 'none';
-    probeBtn.style.display = (gameMode==='hidden') ? 'inline' : 'none';
-  }
-  modeSel.addEventListener('change', ()=>{
-    gameMode = modeSel.value;
-    applyModeUI();
-    simplexActive=false; simplexPath=[]; simplexIndex=0; updateSimplexUI();
-    genProblem(); // restart with new mode
-  });
-  // init
-  gameMode = modeSel.value;
-  applyModeUI();
-
-// Re-bind simplexBtn (header) to trigger simplex path
-simplexBtn.addEventListener('click', ()=>{
-    if(!simplexActive){
-      buildSimplexPath();
-      simplexIndex = 0;
-      simplexActive = simplexPath.length>0;
-    } else {
-      // turn off visualization
-      simplexActive = false;
-      simplexPath = [];
-      simplexIndex = 0;
-    }
-    updateSimplexUI();
-    draw();
-  });
-
-  function updateSimplexUI(){
-    if(simplexBtn){ simplexBtn.classList.toggle('primary', simplexActive && simplexPath.length>0); }
-    updateSimplexLabel();
-  }
