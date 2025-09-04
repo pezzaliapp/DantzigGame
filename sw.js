@@ -1,5 +1,5 @@
 // Offline cache (clean build)
-const CACHE = 'dantziggame-v15';
+const CACHE = 'dantziggame-v16';
 const ASSETS = [
   './',
   './index.html',

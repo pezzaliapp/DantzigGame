@@ -368,9 +368,9 @@
   function draw(){
     drawGrid();
     drawConstraints();
-    if(hint) drawHint();
     drawSimplexStep();
     drawPlayer();
+    if(hint) drawHintOverlay();
   }
 
   // ---- Texts ----
@@ -479,7 +479,7 @@
   newBtn.addEventListener('click', genProblem);
   levelSel.addEventListener('change', genProblem);
   hintBtn.addEventListener('click', ()=>{ hint = !hint; hintBtn.classList.toggle('primary', hint); status.textContent = hint ? 'Hint attivo' : 'Hint disattivato'; draw(); });
-  centerBtn.addEventListener('click', ()=>{ xVal.value = player.x.toFixed(2); yVal.value = player.y.toFixed(2); draw(); });
+centerBtn.addEventListener('click', ()=>{ xVal.value = player.x.toFixed(2); yVal.value = player.y.toFixed(2); draw(); });
   [snapInt, boolMode].forEach(el=> el.addEventListener('change', ()=>{ draw(); loadBest(); }));
 
   checkBtn.addEventListener('click', ()=>{
@@ -530,13 +530,54 @@
 })();
 
 // ---- Hint overlay ----
-function drawHint(){
-  ctx.save();
-  // draw level set through player + gradient arrow + labels
-  drawObjective([player.x, player.y]);
-  // status watermark
-  ctx.fillStyle = '#ff9800';
-  ctx.font = 'bold 12px system-ui';
-  ctx.fillText('HINT attivo', PAD+8, PAD+16);
-  ctx.restore();
+
+// ---- Hint overlay (drawn last) ----
+function drawHintOverlay(){
+  try{
+    const [c1,c2]=world.c;
+    // level set through player's current z
+    const k = c1*player.x + c2*player.y;
+    const xmin=view.xmin, xmax=view.xmax, ymin=view.ymin, ymax=view.ymax;
+    const pts = [];
+    if (Math.abs(c2)>1e-9){
+      const yL=(k-c1*xmin)/c2; if(yL>=ymin && yL<=ymax) pts.push([xmin,yL]);
+      const yR=(k-c1*xmax)/c2; if(yR>=ymin && yR<=ymax) pts.push([xmax,yR]);
+    }
+    if (Math.abs(c1)>1e-9){
+      const xB=(k-c2*ymin)/c1; if(xB>=xmin && xB<=xmax) pts.push([xB,ymin]);
+      const xT=(k-c2*ymax)/c1; if(xT>=xmin && xT<=xmax) pts.push([xT,ymax]);
+    }
+    // deduplicate
+    const uniq=[];
+    for(const p of pts){ if(!uniq.some(q=>Math.hypot(q[0]-p[0], q[1]-p[1])<1e-6)) uniq.push(p); }
+    if(uniq.length>=2){
+      const [a,b]=uniq.slice(0,2);
+      const [x1,y1]=toScreen(a[0],a[1]);
+      const [x2,y2]=toScreen(b[0],b[1]);
+      const oldStroke = ctx.strokeStyle, oldWidth = ctx.lineWidth, oldDash = ctx.getLineDash();
+      ctx.save();
+      ctx.strokeStyle = '#ff9800';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([6,6]);
+      ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+      ctx.setLineDash(oldDash);
+      // Arrow showing ascent (gradient)
+      const [sx,sy]=toScreen(player.x, player.y);
+      const norm = Math.hypot(c1,c2) || 1;
+      const dx = (c1/norm)*28, dy = -(c2/norm)*28;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(sx+dx, sy+dy); ctx.stroke();
+      const angle = Math.atan2(dy, dx);
+      const ah = 8;
+      ctx.beginPath();
+      ctx.moveTo(sx+dx, sy+dy);
+      ctx.lineTo(sx+dx - ah*Math.cos(angle - Math.PI/6), sy+dy - ah*Math.sin(angle - Math.PI/6));
+      ctx.lineTo(sx+dx - ah*Math.cos(angle + Math.PI/6), sy+dy - ah*Math.sin(angle + Math.PI/6));
+      ctx.closePath(); ctx.fillStyle = '#ff9800'; ctx.fill();
+      ctx.restore();
+    }
+  }catch(err){
+    console.error('Hint overlay error', err);
+  }
 }
+
