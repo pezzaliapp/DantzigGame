@@ -385,4 +385,21 @@
   // ---- Init ----
   genProblem();
   maybeShowTutorial();
+
+  function updateTexts(){
+    const {Xmax,Ymax,c,slants} = world;
+    problemText.textContent =
+      `Massimizza z = ${c[0]}·x + ${c[1]}·y con x≥0, y≥0, x≤${Xmax}, y≤${Ymax}` +
+      (slants.length ? ` e ${slants.length} vincoli obliqui` : ``);
+
+    const cons = [
+      `x ≥ 0`, `y ≥ 0`, `x ≤ ${Xmax}`, `y ≤ ${Ymax}`,
+      ...slants.map((s,i)=>`${s.a}·x + ${s.b}·y ≤ ${s.d}`)
+    ].join("\n");
+
+    constraintsText.textContent = cons;
+    xVal.value = player.x.toFixed(2);
+    yVal.value = player.y.toFixed(2);
+  }
+
 })();
