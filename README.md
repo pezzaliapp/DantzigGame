@@ -1,16 +1,14 @@
-# Dantzig Game — avanzato (PWA)
+# Dantzig Game — avanzato (PWA, responsive)
 
-Gioco didattico ispirato a George Dantzig: massimizza `z = c₁x + c₂y` con vincoli lineari in 2 variabili.
+- PL 2D con livelli Facile/Medio/Difficile
+- Snap interi e Boolean {0,1} (bonus)
+- Simplex step-by-step (didattico)
+- Best score in `localStorage`
+- Tutorial iniziale
+- Canvas **responsive** con scaling per Retina/DPR
 
-## Novità
-- **Livelli:** Facile/Medio/Difficile (2/3/4 vincoli obliqui)
-- **Modalità intera/booleana {0,1}:** punteggio con **bonus +10** se ammissibile
-- **Simplex step-by-step:** percorso didattico di vertice in vertice (pivot)
-- **Best score** salvato in `localStorage`
-- **Tutorial** mostrato al primo avvio
-
-## Uso
-Apri `index.html` in un browser moderno. Attiva l'installazione PWA dal link “Installa”.
+## Avvio
+Apri `index.html` in un browser moderno. Per PWA offline è già incluso un Service Worker.
 
 ## Licenza
 MIT © 2025 PezzaliAPP

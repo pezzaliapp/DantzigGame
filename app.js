@@ -1,8 +1,10 @@
-/* Dantzig Game — avanzato
+/* Dantzig Game — avanzato + responsive
    - Livelli: easy (2 obliqui), medium (3), hard (4)
-   - Modalità intera / booleana {0,1} con bonus punteggio
-   - Simplex step-by-step (didattico): cammino di miglioramento su vertici
-   - Best score in localStorage per (level, mode)
+   - Modalità intera / booleana {0,1} con bonus
+   - Simplex step-by-step (didattico)
+   - Best score in localStorage
+   - Tutorial
+   - Canvas responsive con DPR scaling
 */
 (function(){
   'use strict';
@@ -33,9 +35,33 @@
   const closeTutorial = document.getElementById('closeTutorial');
   const installLink = document.getElementById('installLink');
 
-  // ---- State ----
-  let W = canvas.width, H = canvas.height;
+  // --- Responsive canvas (DPR aware) ---
+  const wrap = document.getElementById('plotWrap');
+  let W = 700, H = 700;
   let PAD = 56;
+  function resizeCanvas(){
+    if(!wrap) return;
+    const headerH = document.querySelector('header')?.getBoundingClientRect().height || 0;
+    const footerH = document.querySelector('footer')?.getBoundingClientRect().height || 0;
+    const vpH = window.innerHeight;
+    const maxH = Math.max(360, vpH - headerH - footerH - 24);
+    const cssW = wrap.clientWidth || 700;
+    const cssH = Math.min(cssW, maxH);
+    const dpr = Math.min(3, window.devicePixelRatio || 1);
+    canvas.style.width = cssW + 'px';
+    canvas.style.height = cssH + 'px';
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    W = cssW; H = cssH;
+    draw();
+  }
+  const ro = new ResizeObserver(()=> resizeCanvas());
+  ro.observe(wrap);
+  window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('orientationchange', resizeCanvas);
+
+  // ---- State ----
   let world = { Xmax: 12, Ymax: 12, c:[3,2], slants: [], seed: 0, level:'easy' };
   let player = { x: 2, y: 2 };
   let dragging = false;
@@ -87,7 +113,7 @@
     hint = false;
     updateTexts();
     draw();
-    status.textContent = 'Nuovo problema.';
+    status.textContent = 'Nuovo problema.'; resizeCanvas();
     scoreBox.textContent = '—';
     simplexPath = [];
     simplexIndex = 0;
@@ -129,7 +155,6 @@
     const cand = lineIntersections(lines);
     cand.push([0,0],[Xmax,0],[0,Ymax],[Xmax,Ymax]);
     const verts = cand.filter(p=>feasible(p, false));
-    // dedup
     const uniq = [];
     for(const p of verts){
       if(!uniq.some(q=>Math.hypot(q[0]-p[0], q[1]-p[1])<1e-6)) uniq.push(p);
@@ -153,16 +178,12 @@
     const opt = computeOptimum();
     if(!opt.ok){ simplexPath=[]; simplexIndex=0; return; }
     const verts = opt.verts.slice();
-    // start from the feasible vertex with minimal objective (for contrast)
     verts.sort((a,b)=>objectiveValue(a[0],a[1]) - objectiveValue(b[0],b[1]));
     const start = verts[0], goal = opt.point;
-    // greedy ascent: each step pick neighbor vertex with highest improvement (approx neighbor by sharing one boundary line)
-    // For simplicity, we approximate neighbors by selecting next best distinct vertex with increasing objective.
     const path = [start];
     let remaining = verts.filter(v=>v!==start);
     let current = start;
     while(true){
-      // pick best remaining that improves
       let improving = remaining.filter(v=>objectiveValue(v[0],v[1])>objectiveValue(current[0],current[1]));
       if(improving.length===0) break;
       improving.sort((a,b)=>objectiveValue(b[0],b[1]) - objectiveValue(a[0],a[1]));
@@ -170,11 +191,10 @@
       path.push(next);
       remaining = remaining.filter(v=>v!==next);
       current = next;
-      if(current===goal || (Math.hypot(current[0]-goal[0], current[1]-goal[1])<1e-6)) break;
+      if(Math.hypot(current[0]-goal[0], current[1]-goal[1])<1e-6) break;
     }
-    // ensure goal is last
-    if(Math.hypot(path[path.length-1][0]-opt.point[0], path[path.length-1][1]-opt.point[1])>1e-6){
-      path.push(opt.point);
+    if(Math.hypot(path[path.length-1][0]-goal[0], path[path.length-1][1]-goal[1])>1e-6){
+      path.push(goal);
     }
     simplexPath = path;
     simplexIndex = 0;
@@ -188,8 +208,8 @@
 
   // ---- Drawing ----
   function drawGrid(){
-    ctx.clearRect(0,0,W,H);
-    ctx.fillStyle = '#0b0c10'; ctx.fillRect(0,0,W,H);
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = '#0b0c10'; ctx.fillRect(0,0,canvas.width,canvas.height);
     ctx.strokeStyle = '#2a2d36'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.rect(PAD,PAD, W-2*PAD, H-2*PAD); ctx.stroke();
     ctx.fillStyle = '#9aa0a6'; ctx.font = '12px system-ui';
@@ -207,7 +227,6 @@
 
   function drawConstraints(){
     const {Xmax,Ymax,slants} = world;
-    // draw slanted lines
     for(const s of slants){
       const pts = [];
       if(s.b!==0){ const y=s.d/s.b; if(y>=0 && y<=Ymax) pts.push([0,y]); }
@@ -223,7 +242,6 @@
         ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
       }
     }
-    // fill feasible region coarse
     ctx.fillStyle = 'rgba(30,136,229,0.15)';
     const step = 2;
     for(let sx=PAD; sx<=W-PAD; sx+=step){
@@ -279,7 +297,6 @@
     if(simplexPath.length===0) return;
     const p = simplexPath[simplexIndex];
     drawObjective(p);
-    // draw visited vertices
     ctx.fillStyle = '#81c784';
     for(let i=0;i<=simplexIndex;i++){
       const [sx,sy]=toScreen(simplexPath[i][0], simplexPath[i][1]);
@@ -293,6 +310,23 @@
     if(hint) drawObjective(player);
     drawPlayer();
     drawSimplexStep();
+  }
+
+  // ---- Texts ----
+  function updateTexts(){
+    const {Xmax,Ymax,c,slants} = world;
+    problemText.textContent =
+      `Massimizza z = ${c[0]}·x + ${c[1]}·y con x≥0, y≥0, x≤${Xmax}, y≤${Ymax}` +
+      (slants.length ? ` e ${slants.length} vincoli obliqui.` : `.`);
+
+    const cons = [
+      `x ≥ 0`, `y ≥ 0`, `x ≤ ${Xmax}`, `y ≤ ${Ymax}`,
+      ...slants.map((s,i)=>`${s.a}·x + ${s.b}·y ≤ ${s.d}`)
+    ].join('\\n');
+
+    constraintsText.textContent = cons;
+    xVal.value = player.x.toFixed(2);
+    yVal.value = player.y.toFixed(2);
   }
 
   // ---- Interaction ----
@@ -357,8 +391,7 @@
   });
 
   simplexBtn.addEventListener('click', ()=>{
-    buildSimplexPath();
-    draw();
+    buildSimplexPath(); draw();
   });
   sxPrev.addEventListener('click', ()=>{ if(simplexPath.length){ simplexIndex = Math.max(0, simplexIndex-1); updateSimplexLabel(); draw(); } });
   sxNext.addEventListener('click', ()=>{ if(simplexPath.length){ simplexIndex = Math.min(simplexPath.length-1, simplexIndex+1); updateSimplexLabel(); draw(); } });
@@ -384,22 +417,6 @@
 
   // ---- Init ----
   genProblem();
+  resizeCanvas();
   maybeShowTutorial();
-
-  function updateTexts(){
-    const {Xmax,Ymax,c,slants} = world;
-    problemText.textContent =
-      `Massimizza z = ${c[0]}·x + ${c[1]}·y con x≥0, y≥0, x≤${Xmax}, y≤${Ymax}` +
-      (slants.length ? ` e ${slants.length} vincoli obliqui` : ``);
-
-    const cons = [
-      `x ≥ 0`, `y ≥ 0`, `x ≤ ${Xmax}`, `y ≤ ${Ymax}`,
-      ...slants.map((s,i)=>`${s.a}·x + ${s.b}·y ≤ ${s.d}`)
-    ].join("\n");
-
-    constraintsText.textContent = cons;
-    xVal.value = player.x.toFixed(2);
-    yVal.value = player.y.toFixed(2);
-  }
-
 })();
